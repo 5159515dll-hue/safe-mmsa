@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "safemmsa"
+version = "0.1.0"
+description = "State-Aware Fusion-Enhanced Mongolian Multi-modal Sentiment Analysis (核心包，不依赖 torch)"
+readme = "README.md"
+requires-python = ">=3.11"
+# 核心依赖：纯 numpy + pydantic v2，绝不引入 torch（torch 仅在 models/ 挂载真实编码器时进入）。
+dependencies = [
+    "numpy>=1.26",
+    "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+# API 层（FastAPI 文件上传）
+api = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+]
+# 信号质量预处理（可选；缺失时质量项降级为 None，核心仍可运行）
+preprocessing = [
+    "opencv-python-headless>=4.9",
+    "librosa>=0.10",
+    "soundfile>=0.12",
+]
+# 文本子词质量（可选；缺失时退化为简单分词桩）
+tokenizer = [
+    "transformers>=4.40",
+]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["safemmsa"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
