@@ -1,0 +1,8 @@
+{
+  "encoder_text":     {"enabled": false, "weights": "models/weights/cino"},
+  "encoder_audio":    {"enabled": false, "weights": "models/weights/xlsr53"},
+  "encoder_video":    {"enabled": false, "weights": "models/weights/vit_fer"},
+  "fusion_backbone":  {"enabled": false, "weights": "models/weights/backbone.pt"},
+  "enhancement":      {"enabled": false, "weights": "models/weights/enhance.pt"},
+  "reliability_head": {"enabled": false}
+}

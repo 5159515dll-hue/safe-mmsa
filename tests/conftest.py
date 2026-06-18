@@ -10,6 +10,18 @@ from safemmsa import (
     register_fusion_backbone,
     register_reliability_head,
 )
+from safemmsa.persistence import analyze_history, eval_runs
+
+
+@pytest.fixture(autouse=True)
+def _isolate_storage(tmp_path_factory):
+    """把持久化重定向到临时目录，避免测试在仓库里写 storage/。"""
+    d = tmp_path_factory.mktemp("storage")
+    analyze_history._path = str(d / "analyze_history.json")
+    eval_runs._path = str(d / "eval_runs.json")
+    analyze_history.clear()
+    eval_runs.clear()
+    yield
 
 
 @pytest.fixture(autouse=True)

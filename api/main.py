@@ -6,9 +6,8 @@ video/audio 作为文件上传落临时文件，text 作为表单字段。
 from __future__ import annotations
 
 import os
-import shutil
 import tempfile
-from contextlib import suppress
+from contextlib import asynccontextmanager, suppress
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, UploadFile
@@ -16,16 +15,28 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import safemmsa
 from safemmsa.contracts import AnalyzeResult
+from safemmsa.persistence import analyze_history
 
 from .models_status import models_status
 
 # 单文件大小上限（部署机内存有限，防 OOM）。
 _MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50MB
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """启动时按 ENV(SAFEMMSA_MODELS_CONFIG) 挂载真实模型；无配置则全用桩/基线。"""
+    with suppress(Exception):
+        from models import load_models  # type: ignore
+
+        load_models()
+    yield
+
+
 app = FastAPI(
     title="SAFE-MMSA API",
     version=safemmsa.__version__,
     description="状态感知驱动融合增强的蒙古语多模态情感分析（predict-then-correct）",
+    lifespan=_lifespan,
 )
 
 # 允许前端跨域（Next.js 演示页）。可用 SAFEMMSA_CORS_ORIGINS 收紧。
@@ -53,6 +64,12 @@ def health() -> dict:
 def models_status_endpoint() -> dict:
     """各 register_* 插点的桩/真模型状态。"""
     return models_status()
+
+
+@app.get("/api/history")
+def history(limit: int = 20) -> dict:
+    """最近的分析历史（紧凑摘要）。"""
+    return {"items": analyze_history.list(limit=limit)}
 
 
 def _spill_to_temp(upload: Optional[UploadFile], suffix: str) -> Optional[str]:
@@ -95,6 +112,18 @@ async def analyze(
             audio=audio_path,
             text=(text.strip() if text and text.strip() else None),
         )
+        # 持久化一条紧凑历史（不含原始媒体/文本，仅结果摘要）。
+        with suppress(Exception):
+            analyze_history.append(
+                {
+                    "final_emotion": result.final_emotion,
+                    "language": result.language,
+                    "initial_top": max(result.initial.distribution, key=result.initial.distribution.get),
+                    "boundary_score": round(result.boundary.score, 4),
+                    "correction_magnitude": result.enhancement.correction_magnitude,
+                    "available": {m.modality: m.available for m in result.modalities},
+                }
+            )
         return result
     finally:
         for p in (video_path, audio_path):
