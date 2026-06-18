@@ -2,7 +2,8 @@
 
 import { EMOTION_LABELS, LABEL_ZH } from "@/lib/types";
 
-// 7 类分布的水平条形图，高亮最大类。
+// 7 类分布的水平条形图，高亮最大类（或 highlight 指定类）。
+// 高亮条按其情感专属色着色，其余为中性灰。
 export function DistributionBars({
   distribution,
   highlight,
@@ -19,11 +20,12 @@ export function DistributionBars({
     (a, b) => ((distribution[b] ?? 0) > (distribution[a] ?? 0) ? b : a),
     EMOTION_LABELS[0]
   );
+  const topClass = highlight ?? top;
   return (
     <div className={compact ? "bars compact" : "bars"}>
       {EMOTION_LABELS.map((label) => {
         const v = distribution[label] ?? 0;
-        const isTop = (highlight ?? top) === label;
+        const isTop = topClass === label;
         return (
           <div className="bar-row" key={label}>
             <div className="bar-label">
@@ -31,11 +33,11 @@ export function DistributionBars({
             </div>
             <div className="bar-track">
               <div
-                className={"bar-fill" + (isTop ? " top" : "")}
+                className={"bar-fill" + (isTop ? ` emo-${label}` : "")}
                 style={{ width: `${Math.max(1, v * 100)}%` }}
               />
             </div>
-            <div className="bar-val">{(v * 100).toFixed(1)}%</div>
+            <div className={"bar-val" + (isTop ? " top" : "")}>{(v * 100).toFixed(1)}%</div>
           </div>
         );
       })}

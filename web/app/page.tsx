@@ -8,6 +8,7 @@ import { DistributionBars } from "@/components/Bars";
 import { ModalityCard } from "@/components/ModalityCard";
 import { StatesPanel } from "@/components/StatesPanel";
 import { AnalyzingPipeline } from "@/components/AnalyzingPipeline";
+import { FileDrop } from "@/components/FileDrop";
 
 const EMOTION_EMOJI: Record<string, string> = {
   happy: "😊",
@@ -67,6 +68,7 @@ export default function Page() {
         <label className="field">
           <span>蒙古文文本（也接受中 / 英，用于桩演示）</span>
           <textarea
+            className="mongol"
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={3}
@@ -74,14 +76,8 @@ export default function Page() {
           />
         </label>
         <div className="file-row">
-          <label className="field">
-            <span>视频文件（可选）</span>
-            <input type="file" accept="video/*" onChange={(e) => setVideo(e.target.files?.[0] ?? null)} />
-          </label>
-          <label className="field">
-            <span>音频文件（可选）</span>
-            <input type="file" accept="audio/*" onChange={(e) => setAudio(e.target.files?.[0] ?? null)} />
-          </label>
+          <FileDrop label="视频文件（可选）" accept="video/*" file={video} onFile={setVideo} hint="点击或拖拽视频" />
+          <FileDrop label="音频文件（可选）" accept="audio/*" file={audio} onFile={setAudio} hint="点击或拖拽音频" />
         </div>
         <button className="btn" onClick={onSubmit} disabled={loading}>
           {loading ? "分析中…" : "开始分析"}

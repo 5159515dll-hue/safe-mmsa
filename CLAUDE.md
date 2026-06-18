@@ -50,9 +50,10 @@ curl --noproxy '*' http://82.157.148.249:8080/api/health     # 验证
 tokens、7 情感专属配色 `--emo-*`；组件 `Bars`/`ModalityCard`/`StatesPanel`/`AnalyzingPipeline`/`FileDrop`。
 一屏可视化「模态+质量 → 初始 p⁰ → 三状态 → 最终 p*+修正幅度」。
 
-## 待办：Claude Design 导入
-把设计项目 `https://claude.ai/design/p/8f37096b-8dfa-4d4b-9d5d-6bf38834125e` 经
-**DesignSync 连接器 + `/design-sync` skill** 导入实现到 `web/`。
-**阻塞**：需在交互式 `claude` 终端 `/login` 登录拥有该设计项目的 claude.ai 账号拿设计 scope
-（`CLAUDE_CODE_OAUTH_TOKEN` 无法扩展该 scope）。拿到后 `get_project`→`list_files`→`get_file`，
-与既有 token 体系**增量逐组件对齐**，别整体覆盖；动手前先确认是“重塑现有 UI”还是“新增页面”。
+## 已完成：Claude Design 导入
+设计项目 `https://claude.ai/design/p/8f37096b-8dfa-4d4b-9d5d-6bf38834125e`（"SAFE-MMSA Design
+System"）已经 **DesignSync 连接器**（`get_project`→`list_files`→`get_file`，本会话 scope 可用）
+**增量逐组件对齐**实现到 `web/`，**重塑现有 UI、未整体覆盖**：globals.css 全量 token 化（IBM Plex /
+Noto Sans Mongolian 字体、color/spacing/shadow/motion tokens、7 情感专属色 `--emo-*`）；分布条 top/
+高亮类按情感着色；新增 `FileDrop` 拖放组件替换裸 `<input type=file>`；KeyValue 虚线 datasheet、
+mono `tabular-nums`、gauge/badge 改用 token。已 build + 部署上线 http://82.157.148.249:8080/。

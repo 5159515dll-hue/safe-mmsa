@@ -18,10 +18,10 @@ function Gauge({ score }: { score: number }) {
   const r = 70;
   const x = cx + r * Math.cos(angle);
   const y = cy - r * Math.sin(angle);
-  const color = score > 0.66 ? "#e0533d" : score > 0.33 ? "#d9a441" : "#3aa66f";
+  const color = score > 0.66 ? "var(--red)" : score > 0.33 ? "var(--amber)" : "var(--green)";
   return (
     <svg viewBox="0 0 180 110" className="gauge">
-      <path d="M20 90 A70 70 0 0 1 160 90" fill="none" stroke="#e6e8ee" strokeWidth="14" />
+      <path d="M20 90 A70 70 0 0 1 160 90" fill="none" stroke="var(--line)" strokeWidth="14" />
       <path
         d={`M20 90 A70 70 0 0 1 ${x} ${y}`}
         fill="none"
