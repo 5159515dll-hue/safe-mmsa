@@ -1,0 +1,16 @@
+[Unit]
+Description=SAFE-MMSA Web (Next.js)
+After=network.target safe-mmsa-api.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/safe-mmsa/web
+Environment=NODE_ENV=production
+# next start 绑 127.0.0.1:3100（见 package.json start 脚本），由 nginx 反代对外。
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
