@@ -1,0 +1,55 @@
+# ── 数据集 / 大文件 / 训练产物（永不入库）─────────────────────────
+data/
+*.mp4
+*.avi
+*.mov
+*.wav
+*.mp3
+*.flac
+models/**/*.pt
+models/**/*.pth
+models/**/*.bin
+models/**/*.safetensors
+models/**/*.onnx
+models/**/*.ckpt
+
+# ── 保密：开题报告 / 论文原稿等绝不入库 ──────────────────────────
+*.docx
+*.doc
+开题报告*
+论文*
+
+# ── Python ──────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── Node / Next.js ──────────────────────────────────────────────
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env
+.env.local
+
+# ── 运行期持久化（本地 SQLite/JSON 历史）────────────────────────
+*.sqlite
+*.sqlite3
+storage/
+runs/
+
+# ── 系统 / 编辑器 ───────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
