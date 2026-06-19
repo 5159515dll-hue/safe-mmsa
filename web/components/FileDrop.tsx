@@ -9,19 +9,21 @@ export function FileDrop({
   file,
   onFile,
   hint,
+  code,
 }: {
   label: string;
   accept: string;
   file: File | null;
   onFile: (f: File | null) => void;
   hint?: string;
+  code?: string;
 }) {
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
     <label className="filedrop">
-      <span className="lbl">{label}</span>
+      <span className="lbl">{code && <em className="chcode">{code}</em>}{label}</span>
       <div
         className={"filedrop-zone" + (drag ? " drag" : "")}
         onClick={() => inputRef.current?.click()}

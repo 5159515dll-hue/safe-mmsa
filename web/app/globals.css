@@ -46,7 +46,7 @@
   --font-sans: "IBM Plex Sans", "IBM Plex Sans SC", -apple-system, BlinkMacSystemFont,
     "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "IBM Plex Mono", "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --font-mongol: "Noto Sans Mongolian", var(--font-sans);
+  --font-mongol: "Noto Sans Mongolian", "Mongolian Baiti", "STMongolian", var(--font-sans);
 
   /* ── Gradients ────────────────────────────────────────── */
   --gradient-brand: linear-gradient(92deg, #2b59e0 0%, #6a3ae8 55%, #1f7a4d 100%);
@@ -91,31 +91,60 @@ body {
 
 .page { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
 
-/* ── Hero ── */
-.hero { margin-bottom: 16px; }
-.hero h1 {
-  margin: 0;
-  font-size: 30px;
-  letter-spacing: 1px;
-  font-weight: 800;
-  width: fit-content;
-  white-space: nowrap;
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+/* ── Hero — 暗色仪表面板（与 3D 视口呼应；signature = 套准角标 + mono 编码声） ── */
+.hero {
+  position: relative; overflow: hidden;
+  margin-bottom: 18px; padding: 26px 30px 22px;
+  border-radius: 16px; color: #e7ecf6;
+  background:
+    radial-gradient(130% 150% at 88% -30%, rgba(58, 114, 232, .20), transparent 56%),
+    linear-gradient(180deg, #0e1626 0%, #0a0f1c 100%);
+  border: 1px solid #1c2842;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .22), 0 20px 44px rgba(8, 13, 26, .30);
 }
-.subtitle { margin: 4px 0 10px; color: var(--muted); }
-.mode-badge {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 4px 10px; border-radius: var(--radius-pill);
-  font-size: 12px; font-weight: 600;
+/* 套准/裁切角标 —— 整页的签名母题 */
+.hero::before, .hero::after {
+  content: ""; position: absolute; width: 15px; height: 15px; pointer-events: none;
+  border: 1.5px solid rgba(150, 172, 214, .42);
 }
-.mode-badge.stub { background: var(--amber-tint); color: var(--amber-ink); }
-.mode-badge.real { background: var(--green-tint); color: var(--green-ink); }
-.mode-badge .dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: currentColor; animation: breathe 1.8s ease-in-out infinite;
+.hero::before { top: 11px; left: 11px; border-right: 0; border-bottom: 0; }
+.hero::after { bottom: 11px; right: 11px; border-left: 0; border-top: 0; }
+.hero > *:not(.hero-mongol) { position: relative; z-index: 1; }
+
+.hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.6px; color: #7186b3; text-transform: uppercase; }
+.wordmark { margin: 0; font-size: clamp(34px, 6.4vw, 48px); font-weight: 700; letter-spacing: -1px; line-height: 1; color: #f4f7ff; }
+.expand { margin: 9px 0 0; font-family: var(--font-mono); font-size: 12px; letter-spacing: .3px; color: #6c80ac; }
+.thesis { margin: 15px 0 0; max-width: 660px; font-size: 14px; line-height: 1.72; color: #aab4cc; }
+.thesis b { color: #e7ecf6; font-weight: 600; }
+.pipeline-rule {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 18px;
+  font-family: var(--font-mono); font-size: 12px; color: #8295be;
+}
+.pipeline-rule i { width: 16px; height: 1px; background: linear-gradient(90deg, #2a3a5e, #41568a); }
+.pipeline-rule .end { color: #9fc0ff; font-weight: 600; }
+.pipeline-rule .eq { margin-left: auto; padding-left: 16px; color: #5f74a0; letter-spacing: .5px; }
+.hero-mongol {
+  position: absolute; top: -10px; right: 70px; z-index: 0; pointer-events: none; user-select: none;
+  writing-mode: vertical-lr; font-family: var(--font-mongol);
+  font-size: 104px; line-height: 1; color: rgba(159, 192, 255, .06);
+}
+
+/* 状态仪表芯片（mono） */
+.mode-chip {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  padding: 4px 11px; border-radius: var(--radius-pill);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; border: 1px solid;
+}
+.mode-chip.stub { color: #f0c987; border-color: rgba(217, 164, 65, .42); background: rgba(217, 164, 65, .10); }
+.mode-chip.real { color: #7fd4a6; border-color: rgba(58, 166, 111, .42); background: rgba(58, 166, 111, .12); }
+.mode-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: breathe 1.8s ease-in-out infinite; }
+
+@media (max-width: 640px) {
+  .hero { padding: 20px 18px 18px; }
+  .hero-mongol { display: none; }
+  .pipeline-rule { font-size: 11px; gap: 7px; }
+  .pipeline-rule .eq { margin-left: 0; padding-left: 0; width: 100%; }
 }
 
 /* ── Cards ── */
@@ -172,12 +201,41 @@ textarea:focus {
 .btn:disabled { opacity: .6; cursor: default; }
 .error { margin-top: 10px; color: var(--red); white-space: pre-wrap; }
 
+/* ── 编码声 + 角标延伸（输入卡片 / 三状态面板，hero 母题的安静回声） ── */
+.card-eyebrow {
+  display: block; font-family: var(--font-mono);
+  font-size: 10.5px; letter-spacing: 1.6px; text-transform: uppercase;
+  color: #6b7bb0; margin-bottom: 12px;
+}
+.chcode {
+  font-family: var(--font-mono); font-style: normal; font-weight: 600;
+  font-size: 10px; letter-spacing: .5px; color: var(--blue-700);
+  background: var(--blue-50); border: 1px solid var(--blue-100);
+  border-radius: 5px; padding: 1px 5px; margin-right: 7px; vertical-align: 1px;
+}
+.inputs, .state { position: relative; }
+.inputs::before, .inputs::after, .state::before, .state::after {
+  content: ""; position: absolute; width: 11px; height: 11px; pointer-events: none;
+  border: 1.5px solid rgba(43, 89, 224, .16);
+}
+.inputs::before, .state::before { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
+.inputs::after, .state::after { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
+
 /* ── Final-verdict banner ── */
 .final-banner {
+  position: relative; overflow: hidden;
   display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
   background: var(--gradient-banner);
   border-color: #e1e7f7;
 }
+/* 与 hero 一致的套准角标（浅底版本） */
+.final-banner::before, .final-banner::after {
+  content: ""; position: absolute; width: 13px; height: 13px; pointer-events: none;
+  border: 1.5px solid rgba(43, 89, 224, .22);
+}
+.final-banner::before { top: 9px; left: 9px; border-right: 0; border-bottom: 0; }
+.final-banner::after { bottom: 9px; right: 9px; border-left: 0; border-top: 0; }
+.final-banner > * { position: relative; }
 .final-label { color: var(--muted); font-size: 12px; }
 .final-emotion { font-size: 40px; font-weight: 800; line-height: 1.1; display: flex; align-items: center; gap: 12px; }
 .final-emoji { font-size: 44px; animation: pop .5s var(--ease-pop) both; }
@@ -187,7 +245,8 @@ textarea:focus {
 .final-meta span { color: var(--muted); font-size: 12px; }
 .final-meta b { font-size: 14px; }
 
-.stage { font-size: 16px; font-weight: 600; margin: 22px 0 10px; }
+.stage { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 600; margin: 28px 0 12px; color: var(--ink); }
+.stage::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
 
 /* ── Modality cards ── */
 .modalities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }

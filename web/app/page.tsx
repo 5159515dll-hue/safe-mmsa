@@ -59,20 +59,34 @@ export default function Page() {
   return (
     <main className="page">
       <header className="hero">
-        <h1>SAFE-MMSA</h1>
-        <p className="subtitle">状态感知驱动融合增强的蒙古语多模态情感分析 · predict-then-correct</p>
-        {status && (
-          <span className={"mode-badge " + (status.all_stub ? "stub" : "real")}>
-            <span className="dot" />
-            {status.all_stub ? "当前：桩 / 基线演示（未接真实模型）" : "当前：已接入真实模型"}
-          </span>
-        )}
+        <div className="hero-mongol" aria-hidden="true">ᠮᠣᠩᠭᠣᠯ</div>
+        <div className="hero-top">
+          <span className="eyebrow">蒙古语 · 视频 + 音频 + 文本</span>
+          {status && (
+            <span className={"mode-chip " + (status.all_stub ? "stub" : "real")}>
+              <span className="dot" />
+              {status.all_stub ? "桩 / 基线演示" : "已接入真实模型"}
+            </span>
+          )}
+        </div>
+        <h1 className="wordmark">SAFE-MMSA</h1>
+        <p className="expand">State-Aware Fusion-Enhanced · Mongolian Multi-modal Sentiment Analysis</p>
+        <p className="thesis">
+          先由融合主干给出初始判断 <b>p⁰</b>，再用三状态——边界 / 类别竞争 / 模态可靠性——
+          门控一次<b>有界修正</b>，得到最终情感 <b>p*</b>。整条 predict-then-correct 流程逐步可观测。
+        </p>
+        <div className="pipeline-rule" aria-hidden="true">
+          <span>输入</span><i></i><span>编码 ×3</span><i></i><span>融合 p⁰</span><i></i>
+          <span>三状态 B·C·R</span><i></i><span>有界增强</span><i></i><span className="end">p*</span>
+          <span className="eq">‖p*−p⁰‖ ≤ η·B</span>
+        </div>
       </header>
 
       {/* 输入区 */}
       <section className="card inputs">
+        <span className="card-eyebrow">INPUT · 三模态联合输入</span>
         <label className="field">
-          <span>蒙古文文本（也接受中 / 英，用于桩演示）</span>
+          <span><em className="chcode">TXT</em>蒙古文文本（也接受中 / 英，用于桩演示）</span>
           <textarea
             className="mongol"
             value={text}
@@ -82,8 +96,8 @@ export default function Page() {
           />
         </label>
         <div className="file-row">
-          <FileDrop label="视频文件（可选）" accept="video/*" file={video} onFile={setVideo} hint="点击或拖拽视频" />
-          <FileDrop label="音频文件（可选）" accept="audio/*" file={audio} onFile={setAudio} hint="点击或拖拽音频" />
+          <FileDrop code="VID" label="视频文件（可选）" accept="video/*" file={video} onFile={setVideo} hint="点击或拖拽视频" />
+          <FileDrop code="AUD" label="音频文件（可选）" accept="audio/*" file={audio} onFile={setAudio} hint="点击或拖拽音频" />
         </div>
         <button className="btn" onClick={onSubmit} disabled={loading}>
           {loading ? "分析中…" : "开始分析"}

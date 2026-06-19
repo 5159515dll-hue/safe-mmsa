@@ -53,6 +53,7 @@ export function StatesPanel({
     <div className="states-grid">
       {/* 边界评分 B */}
       <div className="card state">
+        <span className="card-eyebrow">BOUNDARY</span>
         <div className="state-title">① 边界评分 B</div>
         <Gauge score={boundary.score} />
         <div className="kv">
@@ -65,6 +66,7 @@ export function StatesPanel({
 
       {/* 类别竞争 C */}
       <div className="card state">
+        <span className="card-eyebrow">COMPETITION</span>
         <div className="state-title">② 类别竞争 C</div>
         <div className="versus">
           <span className="vs-top">{LABEL_ZH[competition.top1]}</span>
@@ -94,6 +96,7 @@ export function StatesPanel({
 
       {/* 模态可靠性 R */}
       <div className="card state">
+        <span className="card-eyebrow">RELIABILITY</span>
         <div className="state-title">③ 模态可靠性 R</div>
         {mods.length === 0 && <div className="muted">无可用模态</div>}
         {mods.map((m) => (

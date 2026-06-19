@@ -173,8 +173,9 @@ function Histogram({ dist, x, highlight, title }: { dist: Record<string, number>
   );
 }
 
-// 能量导管：发光直线（按端点半径精确裁剪到两端模块表面，杜绝悬空/穿模）+ 流动光点。
-function Conduit({ from, to, color = "#5a86f2", count = 4, r0 = 0, r1 = 0 }: { from: Vec; to: Vec; color?: string; count?: number; r0?: number; r1?: number }) {
+// 能量导管：发光直线（按端点半径裁剪到两端模块表面）+ 流动光点。
+// 按 delay 顺序“通电”——导管与光点淡入，配合阶段入场形成左→右的上电波；光点在两端淡出。
+function Conduit({ from, to, color = "#5a86f2", count = 4, r0 = 0, r1 = 0, delay = 0 }: { from: Vec; to: Vec; color?: string; count?: number; r0?: number; r1?: number; delay?: number }) {
   const { s, e, pts } = useMemo(() => {
     const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to);
     const dir = b.clone().sub(a); const L = Math.max(1e-3, dir.length()); dir.divideScalar(L);
@@ -182,22 +183,30 @@ function Conduit({ from, to, color = "#5a86f2", count = 4, r0 = 0, r1 = 0 }: { f
     const ee = b.clone().sub(dir.clone().multiplyScalar(r1));
     return { s: ss, e: ee, pts: [[ss.x, ss.y, ss.z], [ee.x, ee.y, ee.z]] as Vec[] };
   }, [from, to, r0, r1]);
+  const line = useRef<any>(null);
   const grp = useRef<THREE.Group>(null);
-  useFrame((st) => {
-    const t = st.clock.elapsedTime;
+  const t = useRef(0);
+  useFrame((st, dt) => {
+    t.current += dt;
+    const on = clamp01((t.current - delay) / 0.5);
+    if (line.current?.material) line.current.material.opacity = 0.6 * on;
+    const tt = st.clock.elapsedTime;
     grp.current?.children.forEach((c, i) => {
-      const f = (t * 0.42 + i / count) % 1;
+      const f = (tt * 0.4 + i / count) % 1;
       c.position.lerpVectors(s, e, f);
+      const fade = Math.sin(f * Math.PI); // 端点淡出，光点不“突现/突灭”
+      const mat = (c as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      mat.opacity = on * (0.3 + 0.7 * fade);
     });
   });
   return (
     <group>
-      <Line points={pts} color={color} lineWidth={2.4} transparent opacity={0.62} toneMapped={false} />
+      <Line ref={line} points={pts} color={color} lineWidth={2.4} transparent opacity={0} toneMapped={false} />
       <group ref={grp}>
         {Array.from({ length: count }).map((_, i) => (
           <mesh key={i}>
             <sphereGeometry args={[0.095, 10, 10]} />
-            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.2} toneMapped={false} />
+            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.2} transparent opacity={0} toneMapped={false} />
           </mesh>
         ))}
       </group>
@@ -208,9 +217,15 @@ function Conduit({ from, to, color = "#5a86f2", count = 4, r0 = 0, r1 = 0 }: { f
 // 阶段枢纽（连接锚点）+ 细茎（枢纽 → 该阶段详细可视化）。
 function Hub({ pos, color = "#aecbff", r = 0.34, pulse = false }: { pos: Vec; color?: string; r?: number; pulse?: boolean }) {
   const m = useRef<THREE.MeshStandardMaterial>(null);
-  useFrame((s) => { if (m.current && pulse) m.current.emissiveIntensity = 1.5 + Math.sin(s.clock.elapsedTime * 3) * 0.45; });
+  const me = useRef<THREE.Mesh>(null);
+  useFrame((s) => {
+    if (!pulse) return;
+    const k = Math.sin(s.clock.elapsedTime * 2.4);
+    if (m.current) m.current.emissiveIntensity = 1.5 + k * 0.4;
+    if (me.current) { const sc = 1 + k * 0.06; me.current.scale.set(sc, sc, sc); }
+  });
   return (
-    <mesh position={pos}>
+    <mesh ref={me} position={pos}>
       <sphereGeometry args={[r, 22, 22]} />
       <meshStandardMaterial ref={m} color={color} emissive={color} emissiveIntensity={1.6} toneMapped={false} />
     </mesh>
@@ -406,7 +421,7 @@ function Scene({ result, focus, onFocus }: { result: AnalyzeResult; focus: strin
                 <Encoder pos={[0, 0, 0]} color={col} label={MOD_ZH[m.modality]} available={m.available} />
               </Appear>
             </group>
-            <Conduit from={[ENC + 0.52, y, 0]} to={[FUS, SY, 0]} color={col} r1={FUS_R} />
+            <Conduit from={[ENC + 0.52, y, 0]} to={[FUS, SY, 0]} color={col} r1={FUS_R} delay={0.1 + i * 0.05} />
           </group>
         );
       })}
@@ -416,7 +431,7 @@ function Scene({ result, focus, onFocus }: { result: AnalyzeResult; focus: strin
           <FusionCore pos={[0, 0, 0]} />
         </Appear>
       </group>
-      <Conduit from={[FUS, SY, 0]} to={[P0, SY, 0]} r0={FUS_R} r1={HUB_R} />
+      <Conduit from={[FUS, SY, 0]} to={[P0, SY, 0]} r0={FUS_R} r1={HUB_R} delay={0.4} />
 
       {/* 初始预测 p⁰ */}
       <group {...pick("p0")}>
@@ -426,7 +441,7 @@ function Scene({ result, focus, onFocus }: { result: AnalyzeResult; focus: strin
           <Histogram dist={result.initial.distribution} x={0} title="初始预测 p⁰" />
         </Appear>
       </group>
-      <Conduit from={[P0, SY, 0]} to={[ST, SY, 0]} r0={HUB_R} r1={HUB_R} />
+      <Conduit from={[P0, SY, 0]} to={[ST, SY, 0]} r0={HUB_R} r1={HUB_R} delay={0.56} />
 
       {/* 三状态 */}
       <group {...pick("states")}>
@@ -444,7 +459,7 @@ function Scene({ result, focus, onFocus }: { result: AnalyzeResult; focus: strin
           <ReliabilityMeters pos={[0, 0, 0]} per={result.reliability.per_modality} />
         </Appear>
       </group>
-      <Conduit from={[ST, SY, 0]} to={[PS, SY, 0]} color="#8a6fd1" r0={HUB_R} r1={HUB_R} />
+      <Conduit from={[ST, SY, 0]} to={[PS, SY, 0]} color="#8a6fd1" r0={HUB_R} r1={HUB_R} delay={0.76} />
 
       {/* 最终预测 p* + 修正叠加（白刻度=p⁰参考，绿/红=Δ；详见点击面板） */}
       <group {...pick("pstar")}>
