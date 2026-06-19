@@ -23,6 +23,23 @@ const MOD_ZH: Record<string, string> = { video: "视频", audio: "音频", text:
 const MOD_COLOR: Record<string, string> = { video: "#5e8fe0", audio: "#37c4d2", text: "#f0b53e" };
 const ZH = LABEL_ZH;
 const SPINE_Y = 0.6, BASE_Y = -3.0, BAR_SCALE = 2.7;
+const ENC_X = -11, FUS_X = -6.5, P0_X = -2, ST_X = 4.6, PS_X = 10.2;
+const encY = (i: number) => SPINE_Y + ([1.8, 0, -1.8][i] ?? 0);
+// 点击聚焦：每个阶段的相机注视点(t)与机位(c)。
+const FOCUS_AT: Record<string, { t: Vec; c: Vec }> = {
+  enc0: { t: [ENC_X, encY(0), 0], c: [ENC_X + 4.5, encY(0) + 2.4, 7.5] },
+  enc1: { t: [ENC_X, encY(1), 0], c: [ENC_X + 4.5, encY(1) + 1.4, 7.5] },
+  enc2: { t: [ENC_X, encY(2), 0], c: [ENC_X + 4.5, encY(2) + 0.6, 7.5] },
+  fusion: { t: [FUS_X, SPINE_Y, 0], c: [FUS_X + 2.5, SPINE_Y + 2.4, 8] },
+  p0: { t: [P0_X, SPINE_Y - 1.0, 0], c: [P0_X + 1.6, SPINE_Y + 1.2, 8.5] },
+  states: { t: [ST_X, 0, 0], c: [ST_X + 3, 2.2, 11.5] },
+  pstar: { t: [PS_X, SPINE_Y - 1.0, 0], c: [PS_X - 1.6, SPINE_Y + 1.2, 8.5] },
+};
+const QUALITY_FIELDS: Record<string, [string, string][]> = {
+  video: [["face_detection_rate", "人脸检出率"], ["brightness", "亮度"], ["blur", "清晰度(Lap)"], ["frame_loss_rate", "丢帧率"]],
+  audio: [["snr_db", "信噪比(dB)"], ["voiced_ratio", "有声比例"], ["silence_ratio", "静音比例"]],
+  text: [["text_length", "长度"], ["valid_token_ratio", "有效token比例"], ["low_freq_subword_ratio", "低频子词比例"]],
+};
 
 function topOf(d: Record<string, number>) {
   return EMOTION_LABELS.reduce((a, b) => ((d[b] ?? 0) > (d[a] ?? 0) ? b : a), EMOTION_LABELS[0]);
@@ -62,6 +79,42 @@ function Rig({ controls }: { controls: { current: any } }) {
     }
   }, [size.width, size.height, camera, controls]);
   return null;
+}
+
+// 聚焦控制：focus 非空时把相机与注视点平滑移到该阶段。
+function FocusController({ focus, controls }: { focus: string | null; controls: { current: any } }) {
+  const { camera } = useThree();
+  const tt = useRef(new THREE.Vector3());
+  const cc = useRef(new THREE.Vector3());
+  useFrame((_, dt) => {
+    if (!focus || !controls.current || !FOCUS_AT[focus]) return;
+    const f = FOCUS_AT[focus];
+    tt.current.set(f.t[0], f.t[1], f.t[2]);
+    cc.current.set(f.c[0], f.c[1], f.c[2]);
+    const k = Math.min(1, dt * 2.6);
+    controls.current.target.lerp(tt.current, k);
+    camera.position.lerp(cc.current, k);
+    controls.current.update();
+  });
+  return null;
+}
+
+// 聚焦光环：标出当前查看的阶段。
+function FocusRing({ pos }: { pos: Vec }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame((s) => {
+    if (ref.current) {
+      ref.current.rotation.z = s.clock.elapsedTime * 1.1;
+      const k = 1 + Math.sin(s.clock.elapsedTime * 4) * 0.06;
+      ref.current.scale.set(k, k, k);
+    }
+  });
+  return (
+    <mesh ref={ref} position={pos} rotation={[Math.PI / 2.2, 0, 0]}>
+      <torusGeometry args={[1.55, 0.045, 12, 50]} />
+      <meshStandardMaterial color="#aecbff" emissive="#aecbff" emissiveIntensity={1.5} toneMapped={false} transparent opacity={0.85} />
+    </mesh>
+  );
 }
 
 function Tag({ position, children, accent }: { position: Vec; children: ReactNode; accent?: string }) {
@@ -109,8 +162,6 @@ function GlowBar({ z, height, color, top, base }: { z: number; height: number; c
 
 function Histogram({ dist, x, highlight, title }: { dist: Record<string, number>; x: number; highlight?: string; title: string }) {
   const top = highlight ?? topOf(dist);
-  const tv = dist[top] ?? 0;
-  const topZ = ((EMOTION_LABELS as readonly string[]).indexOf(top) - 3) * 0.62;
   return (
     <group position={[x, 0, 0]}>
       <Pad x={0} y={BASE_Y - 0.12} r={2.5} />
@@ -118,9 +169,6 @@ function Histogram({ dist, x, highlight, title }: { dist: Record<string, number>
         <GlowBar key={lbl} z={(i - 3) * 0.62} height={Math.max(0.05, (dist[lbl] ?? 0) * BAR_SCALE)} color={EMO[lbl]} top={top === lbl} base={BASE_Y} />
       ))}
       <Tag position={[0, 1.55, 0]} accent={EMO[top]}>{title}</Tag>
-      <Tag position={[0, BASE_Y + tv * BAR_SCALE + 0.5, topZ]} accent={EMO[top]}>
-        {ZH[top]} {(tv * 100).toFixed(1)}%
-      </Tag>
     </group>
   );
 }
@@ -235,7 +283,7 @@ function BoundaryGauge({ pos, score }: { pos: Vec; score: number }) {
         </mesh>
       </group>
       <mesh><sphereGeometry args={[0.12, 16, 16]} /><meshStandardMaterial color="#eaf0ff" emissive="#eaf0ff" emissiveIntensity={1} toneMapped={false} /></mesh>
-      <Tag position={[0, 1.5, 0]} accent={color}>边界 B = {s.toFixed(2)}</Tag>
+      <Tag position={[0, 1.62, 0]} accent={color}>边界 B</Tag>
     </group>
   );
 }
@@ -254,7 +302,7 @@ function CompetitionScale({ pos, top1, top2, dist }: { pos: Vec; top1: string; t
         <mesh position={[0, 0, -1.3]} scale={0.3 + p1}><sphereGeometry args={[0.4, 18, 18]} /><meshStandardMaterial color="#3a72e8" emissive="#3a72e8" emissiveIntensity={1} toneMapped={false} /></mesh>
         <mesh position={[0, 0, 1.3]} scale={0.3 + p2}><sphereGeometry args={[0.4, 18, 18]} /><meshStandardMaterial color="#f0b53e" emissive="#f0b53e" emissiveIntensity={1} toneMapped={false} /></mesh>
       </group>
-      <Tag position={[0, 1.45, 0]} accent="#f0b53e">竞争 C：{ZH[top1]} ↔ {ZH[top2]}</Tag>
+      <Tag position={[0, 1.45, 0]} accent="#f0b53e">竞争 C</Tag>
     </group>
   );
 }
@@ -272,7 +320,6 @@ function ReliabilityMeters({ pos, per }: { pos: Vec; per: Record<string, number>
           <group key={m} position={[0, 0, z]}>
             <mesh position={[0, 0, 0]}><boxGeometry args={[0.4, H, 0.4]} /><meshStandardMaterial color="#1b2740" emissive="#1b2740" emissiveIntensity={0.25} transparent opacity={0.6} toneMapped={false} /></mesh>
             <mesh position={[0, -H / 2 + (v * H) / 2, 0]}><boxGeometry args={[0.42, Math.max(0.04, v * H), 0.42]} /><meshStandardMaterial color="#3aa66f" emissive="#3aa66f" emissiveIntensity={1} toneMapped={false} /></mesh>
-            <Tag position={[0, -H / 2 - 0.45, 0]}>{MOD_ZH[m] ?? m} {v.toFixed(2)}</Tag>
           </group>
         );
       })}
@@ -329,12 +376,15 @@ function CorrectionMarks({ p0, pStar }: { p0: Record<string, number>; pStar: Rec
   );
 }
 
-function Scene({ result }: { result: AnalyzeResult }) {
-  const ENC = -11, FUS = -6.5, P0 = -2, ST = 4.6, PS = 10.2;
-  const SY = SPINE_Y;
+function Scene({ result, focus, onFocus }: { result: AnalyzeResult; focus: string | null; onFocus: (k: string) => void }) {
+  const ENC = ENC_X, FUS = FUS_X, P0 = P0_X, ST = ST_X, PS = PS_X, SY = SPINE_Y;
   const HUB_R = 0.34, FUS_R = 1.08;
   const mods = result.modalities;
-  const corr = result.enhancement.correction_magnitude ?? 0;
+  const pick = (key: string) => ({
+    onClick: (e: any) => { e.stopPropagation(); onFocus(key); },
+    onPointerOver: (e: any) => { e.stopPropagation(); document.body.style.cursor = "pointer"; },
+    onPointerOut: () => { document.body.style.cursor = "auto"; },
+  });
   return (
     <group>
       <ambientLight intensity={0.55} />
@@ -345,61 +395,68 @@ function Scene({ result }: { result: AnalyzeResult }) {
       <Grid position={[0, -4, 0]} args={[70, 44]} cellSize={1} cellThickness={0.5} sectionSize={5} sectionThickness={1}
         cellColor="#1b2740" sectionColor="#2b3f66" fadeDistance={48} fadeStrength={1.4} infiniteGrid />
 
-      {/* 编码器 → 融合（直线裁剪到融合体表面） */}
+      {/* 编码器 → 融合（可点击聚焦） */}
       {mods.map((m, i) => {
         const y = SY + ([1.8, 0, -1.8][i] ?? 0);
         const col = MOD_COLOR[m.modality] ?? "#aab2c4";
         return (
           <group key={m.modality}>
-            <Appear position={[ENC, y, 0]} delay={i * 0.08}>
-              <Encoder pos={[0, 0, 0]} color={col} label={MOD_ZH[m.modality]} available={m.available} />
-            </Appear>
+            <group {...pick("enc" + i)}>
+              <Appear position={[ENC, y, 0]} delay={i * 0.08}>
+                <Encoder pos={[0, 0, 0]} color={col} label={MOD_ZH[m.modality]} available={m.available} />
+              </Appear>
+            </group>
             <Conduit from={[ENC + 0.52, y, 0]} to={[FUS, SY, 0]} color={col} r1={FUS_R} />
           </group>
         );
       })}
 
-      <Appear position={[FUS, SY, 0]} delay={0.28}>
-        <FusionCore pos={[0, 0, 0]} />
-      </Appear>
+      <group {...pick("fusion")}>
+        <Appear position={[FUS, SY, 0]} delay={0.28}>
+          <FusionCore pos={[0, 0, 0]} />
+        </Appear>
+      </group>
       <Conduit from={[FUS, SY, 0]} to={[P0, SY, 0]} r0={FUS_R} r1={HUB_R} />
 
-      {/* 初始预测 p⁰：枢纽在脊线上，柱状图挂在枢纽下方 */}
-      <Hub pos={[P0, SY, 0]} pulse />
-      <Stem from={[P0, SY - HUB_R, 0]} to={[P0, BASE_Y + 1.4, 0]} />
-      <Appear position={[P0, 0, 0]} delay={0.42}>
-        <Histogram dist={result.initial.distribution} x={0} title="初始预测 p⁰" />
-      </Appear>
+      {/* 初始预测 p⁰ */}
+      <group {...pick("p0")}>
+        <Hub pos={[P0, SY, 0]} pulse />
+        <Stem from={[P0, SY - HUB_R, 0]} to={[P0, BASE_Y + 1.4, 0]} />
+        <Appear position={[P0, 0, 0]} delay={0.42}>
+          <Histogram dist={result.initial.distribution} x={0} title="初始预测 p⁰" />
+        </Appear>
+      </group>
       <Conduit from={[P0, SY, 0]} to={[ST, SY, 0]} r0={HUB_R} r1={HUB_R} />
 
-      {/* 三状态：枢纽分出三条细茎到 B / C / R */}
-      <Hub pos={[ST, SY, 0]} pulse />
-      <Stem from={[ST, SY + 0.2, 0]} to={[ST, 1.9, 0]} />
-      <Stem from={[ST, SY - 0.2, 0]} to={[ST, -0.7, 0]} />
-      <Stem from={[ST, -1.1, 0]} to={[ST, -2.2, 0]} />
-      <Appear position={[ST, 2.9, 0]} delay={0.6}>
-        <BoundaryGauge pos={[0, 0, 0]} score={result.boundary.score} />
-      </Appear>
-      <Appear position={[ST, -0.4, 0]} delay={0.68}>
-        <CompetitionScale pos={[0, 0, 0]} top1={result.competition.top1} top2={result.competition.top2} dist={result.initial.distribution} />
-      </Appear>
-      <Appear position={[ST, -2.7, 0]} delay={0.76}>
-        <ReliabilityMeters pos={[0, 0, 0]} per={result.reliability.per_modality} />
-      </Appear>
+      {/* 三状态 */}
+      <group {...pick("states")}>
+        <Hub pos={[ST, SY, 0]} pulse />
+        <Stem from={[ST, SY + 0.2, 0]} to={[ST, 1.9, 0]} />
+        <Stem from={[ST, SY - 0.2, 0]} to={[ST, -0.7, 0]} />
+        <Stem from={[ST, -1.1, 0]} to={[ST, -2.2, 0]} />
+        <Appear position={[ST, 2.9, 0]} delay={0.6}>
+          <BoundaryGauge pos={[0, 0, 0]} score={result.boundary.score} />
+        </Appear>
+        <Appear position={[ST, -0.4, 0]} delay={0.68}>
+          <CompetitionScale pos={[0, 0, 0]} top1={result.competition.top1} top2={result.competition.top2} dist={result.initial.distribution} />
+        </Appear>
+        <Appear position={[ST, -2.7, 0]} delay={0.76}>
+          <ReliabilityMeters pos={[0, 0, 0]} per={result.reliability.per_modality} />
+        </Appear>
+      </group>
       <Conduit from={[ST, SY, 0]} to={[PS, SY, 0]} color="#8a6fd1" r0={HUB_R} r1={HUB_R} />
-      <Tag position={[(ST + PS) / 2, SY + 0.6, 0]} accent="#c9b6ff">有界修正 g(B)·Δ(C,R)</Tag>
 
-      {/* 最终预测 p* + 修正叠加（p⁰ 参考 + Δ） */}
-      <Hub pos={[PS, SY, 0]} color="#c9b6ff" pulse />
-      <Stem from={[PS, SY - HUB_R, 0]} to={[PS, BASE_Y + 1.4, 0]} color="#8a6fd1" />
-      <Appear position={[PS, 0, 0]} delay={0.9}>
-        <Histogram dist={result.enhancement.final_distribution} x={0} highlight={result.final_emotion} title="最终预测 p*" />
-        <CorrectionMarks p0={result.initial.distribution} pStar={result.enhancement.final_distribution} />
-        <Tag position={[0, 2.45, 0]}>白刻度 = p⁰ 参考 · 绿/红 = Δ</Tag>
-        <Tag position={[0, 2.02, 0]} accent="#c9b6ff">
-          ‖p*−p⁰‖ = {corr.toFixed(4)}{corr < 1e-4 ? " · identity 基线" : ""}
-        </Tag>
-      </Appear>
+      {/* 最终预测 p* + 修正叠加（白刻度=p⁰参考，绿/红=Δ；详见点击面板） */}
+      <group {...pick("pstar")}>
+        <Hub pos={[PS, SY, 0]} color="#c9b6ff" pulse />
+        <Stem from={[PS, SY - HUB_R, 0]} to={[PS, BASE_Y + 1.4, 0]} color="#8a6fd1" />
+        <Appear position={[PS, 0, 0]} delay={0.9}>
+          <Histogram dist={result.enhancement.final_distribution} x={0} highlight={result.final_emotion} title="最终预测 p*" />
+          <CorrectionMarks p0={result.initial.distribution} pStar={result.enhancement.final_distribution} />
+        </Appear>
+      </group>
+
+      {focus && FOCUS_AT[focus] && <FocusRing pos={FOCUS_AT[focus].t} />}
     </group>
   );
 }
@@ -411,15 +468,101 @@ class ErrBoundary extends Component<{ children: ReactNode; onError: () => void }
   render() { return this.state.dead ? null : this.props.children; }
 }
 
+// 小型 2D 分布条（详情面板内）。
+function MiniDist({ dist, highlight }: { dist: Record<string, number>; highlight?: string }) {
+  const top = highlight ?? topOf(dist);
+  return (
+    <div className="p3d-mini">
+      {EMOTION_LABELS.map((l) => {
+        const v = dist[l] ?? 0;
+        return (
+          <div className="p3d-mini-row" key={l}>
+            <span>{ZH[l]}</span>
+            <div className="p3d-mini-track"><div className="p3d-mini-fill" style={{ width: `${Math.max(2, v * 100)}%`, background: l === top ? EMO[l] : "#46506e" }} /></div>
+            <span className="mono">{(v * 100).toFixed(1)}%</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// 各阶段的完整数据（取自 AnalyzeResult）——「所有流程」按需展开。
+function detailRows(focus: string, r: AnalyzeResult): { title: string; secs: any[] } {
+  if (focus.startsWith("enc")) {
+    const i = +focus.slice(3); const m = r.modalities[i];
+    if (!m) return { title: "模态", secs: [] };
+    const qf = QUALITY_FIELDS[m.modality] ?? [];
+    const qrows = qf.map(([k, lab]) => [lab, (m.quality as any)[k] == null ? "—" : String((m.quality as any)[k]), true]);
+    const trained = String(m.backend).startsWith("trained");
+    const secs: any[] = [
+      { rows: [["模态", MOD_ZH[m.modality]], ["状态", m.available ? "可用" : "缺失 / 降级"], ["编码器", `${trained ? "真模型" : "桩 / 基线"}（${m.backend}）`]] },
+      { h: "信号质量（预处理 · 确定性）", rows: qrows.length ? qrows : [["—", "无"]] },
+      m.distribution ? { h: "单模态分布", bars: m.distribution } : { h: "单模态分布", rows: [["—", "桩：无单模态分布"]] },
+    ];
+    return { title: `① 编码 · ${MOD_ZH[m.modality]}`, secs };
+  }
+  if (focus === "fusion") {
+    return { title: "② 融合主干", secs: [
+      { rows: [["主干", r.initial.backbone], ["机制", "跨模态注意力 + 低秩张量融合（当前晚融合基线）"]] },
+      { h: "初始预测 p⁰", bars: r.initial.distribution },
+    ] };
+  }
+  if (focus === "p0") return { title: "③ 初始预测 p⁰", secs: [{ h: "7 类分布", bars: r.initial.distribution }] };
+  if (focus === "states") {
+    const b = r.boundary, c = r.competition, rel = r.reliability;
+    const dirRows = Object.entries(c.per_modality_direction).map(([k, v]) => [MOD_ZH[k] ?? k, `${v >= 0 ? "▲偏" + ZH[c.top1] : "▼偏" + ZH[c.top2]} ${v.toFixed(2)}`]);
+    const relRows = Object.entries(rel.per_modality).map(([k, v]) => [MOD_ZH[k] ?? k, v.toFixed(3), true]);
+    return { title: "④ 三状态诊断", secs: [
+      { h: "边界评分 B", rows: [["分值 B", b.score.toFixed(3), true], ["最大置信", b.max_confidence.toFixed(3), true], ["Top-2 间隔", b.top2_margin.toFixed(3), true], ["归一化熵", b.norm_entropy.toFixed(3), true]] },
+      { h: "类别竞争 C", rows: [["Top-1 / Top-2", `${ZH[c.top1]} / ${ZH[c.top2]}`], ["margin", c.margin.toFixed(3), true], ["熵", c.entropy.toFixed(3), true], ...dirRows] },
+      { h: "模态可靠性 R", rows: relRows.length ? relRows : [["—", "无可用模态"]] },
+    ] };
+  }
+  if (focus === "pstar") {
+    const e = r.enhancement;
+    return { title: "⑤ 有界增强 → p*", secs: [
+      { rows: [["增强", e.enhancement], ["有界", e.bounded ? "是" : "否"], ["‖p*−p⁰‖", e.correction_magnitude.toFixed(4) + (e.correction_magnitude < 1e-4 ? "（identity 基线）" : ""), true], ["最终情感", ZH[r.final_emotion]]] },
+      { h: "最终分布 p*", bars: e.final_distribution, hl: r.final_emotion },
+    ] };
+  }
+  return { title: "", secs: [] };
+}
+
+function DetailPanel({ focus, result, onClose }: { focus: string; result: AnalyzeResult; onClose: () => void }) {
+  const { title, secs } = detailRows(focus, result);
+  return (
+    <div className="p3d-panel">
+      <div className="p3d-panel-head">
+        <b>{title}</b>
+        <button className="p3d-panel-x" onClick={onClose}>返回全览 ✕</button>
+      </div>
+      <div className="p3d-panel-body">
+        {secs.map((sec: any, i: number) => (
+          <div className="p3d-panel-sec" key={i}>
+            {sec.h && <div className="p3d-panel-h">{sec.h}</div>}
+            {sec.rows && sec.rows.map((row: any, j: number) => (
+              <div className="p3d-panel-row" key={j}><span>{row[0]}</span><b className={row[2] ? "mono" : ""}>{row[1]}</b></div>
+            ))}
+            {sec.bars && <MiniDist dist={sec.bars} highlight={sec.hl} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Pipeline3D({ result, seq }: { result: AnalyzeResult; seq: number }) {
   const [ok, setOk] = useState<boolean | null>(null);
   const [coarse, setCoarse] = useState(false);
+  const [focus, setFocus] = useState<string | null>(null);
   const controls = useRef<any>(null);
   useEffect(() => {
     try { const c = document.createElement("canvas"); setOk(!!(c.getContext("webgl2") || c.getContext("webgl"))); }
     catch { setOk(false); }
     try { setCoarse(window.matchMedia?.("(pointer: coarse)").matches ?? false); } catch { /* noop */ }
   }, []);
+  useEffect(() => { setFocus(null); }, [seq]);
 
   if (ok === false) return <div className="card muted small">当前环境不支持 WebGL，已回退到下方 2D 详情视图。</div>;
 
@@ -432,7 +575,7 @@ export function Pipeline3D({ result, seq }: { result: AnalyzeResult; seq: number
       <div className="p3d-head">
         <b>运行可视化</b> · 你的样本流经的内部计算结构
         <span className="muted small">
-          {coarse ? "（单指上下滑动翻页 · 双指旋转 / 缩放 · 自动巡航）" : "（拖拽旋转 · 滚轮缩放 · 自动巡航）"}
+          {coarse ? "（点击阶段看详情 · 单指翻页 · 双指旋转/缩放）" : "（点击阶段看详情 · 拖拽旋转 · 滚轮缩放）"}
         </span>
       </div>
       <div className="p3d-stage">
@@ -452,20 +595,21 @@ export function Pipeline3D({ result, seq }: { result: AnalyzeResult; seq: number
         </div>
         <div className="p3d-canvas">
           <ErrBoundary onError={() => setOk(false)}>
-            <Canvas camera={{ position: [0, 5, 21], fov: 42 }} dpr={[1, coarse ? 1.5 : 2]} gl={{ antialias: !coarse }}>
+            <Canvas camera={{ position: [0, 5, 21], fov: 42 }} dpr={[1, coarse ? 1.5 : 2]} gl={{ antialias: !coarse }} onPointerMissed={() => setFocus(null)}>
               <color attach="background" args={["#0a0e18"]} />
               <fog attach="fog" args={["#0a0e18", 26, 60]} />
               <Float speed={1} rotationIntensity={0} floatIntensity={0.3}>
-                <Scene key={seq} result={result} />
+                <Scene key={seq} result={result} focus={focus} onFocus={setFocus} />
               </Float>
               <Rig controls={controls} />
+              <FocusController focus={focus} controls={controls} />
               <OrbitControls
                 ref={controls}
                 enablePan={false}
                 minDistance={10}
                 maxDistance={62}
                 target={[0, 0.4, 0]}
-                autoRotate
+                autoRotate={focus === null}
                 autoRotateSpeed={0.45}
                 touches={{ ONE: coarse ? undefined : THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }}
               />
@@ -476,6 +620,7 @@ export function Pipeline3D({ result, seq }: { result: AnalyzeResult; seq: number
             </Canvas>
           </ErrBoundary>
         </div>
+        {focus && <DetailPanel focus={focus} result={result} onClose={() => setFocus(null)} />}
       </div>
     </div>
   );
