@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { analyze, fetchModelsStatus } from "@/lib/api";
 import type { AnalyzeResult, ModelsStatus } from "@/lib/types";
 import { LABEL_ZH } from "@/lib/types";
@@ -9,6 +10,11 @@ import { ModalityCard } from "@/components/ModalityCard";
 import { StatesPanel } from "@/components/StatesPanel";
 import { AnalyzingPipeline } from "@/components/AnalyzingPipeline";
 import { FileDrop } from "@/components/FileDrop";
+
+const Pipeline3D = dynamic(() => import("@/components/Pipeline3D").then((m) => m.Pipeline3D), {
+  ssr: false,
+  loading: () => <div className="card muted small">加载 3D 运行视图…</div>,
+});
 
 const EMOTION_EMOJI: Record<string, string> = {
   happy: "😊",
@@ -116,6 +122,11 @@ export default function Page() {
                 </b>
               </div>
             </div>
+          </div>
+
+          {/* 运行可视化（3D，数据驱动） */}
+          <div className="reveal" style={{ animationDelay: ".04s" }}>
+            <Pipeline3D result={result} seq={resultSeq} />
           </div>
 
           {/* 阶段1：模态 + 质量 */}

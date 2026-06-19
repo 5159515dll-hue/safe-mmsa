@@ -302,6 +302,49 @@ code { background: var(--surface-track); padding: 1px 5px; border-radius: 4px; f
   display: inline-block; animation: spin .7s linear infinite;
 }
 
+/* ── 运行可视化（3D / WebGL） ── */
+.p3d-card { padding: 0; overflow: hidden; }
+.p3d-head { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.p3d-head .small { margin-left: auto; }
+.p3d-stage { position: relative; width: 100%; height: 600px; background: radial-gradient(120% 120% at 50% 0%, #131a2e 0%, #0a0e18 60%); }
+/* pan-y 让单指上下滑动仍能翻页（双指交给 OrbitControls） */
+.p3d-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+.p3d-tag {
+  font-family: var(--font-sans); font-size: 11px; font-weight: 600;
+  color: #eaf0ff; background: rgba(10, 14, 24, .66); backdrop-filter: blur(2px);
+  padding: 3px 8px; border-radius: 7px; white-space: nowrap;
+  pointer-events: none; border: 1px solid rgba(120, 140, 180, .3);
+}
+/* HUD 读数面板 */
+.p3d-hud {
+  position: absolute; top: 14px; left: 14px; z-index: 2; pointer-events: none;
+  display: flex; flex-direction: column; gap: 4px; min-width: 168px;
+  padding: 12px 14px; border-radius: 12px;
+  background: rgba(10, 14, 24, .58); backdrop-filter: blur(6px);
+  border: 1px solid rgba(120, 140, 180, .28); box-shadow: 0 8px 28px rgba(0,0,0,.35);
+}
+.p3d-hud-row { display: flex; justify-content: space-between; gap: 16px; font-size: 12px; color: #aeb8cf; }
+.p3d-hud-row b { color: #eaf0ff; font-weight: 700; }
+.p3d-hud-row .mono { font-variant-numeric: tabular-nums; }
+/* 情感图例 */
+.p3d-legend {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 2;
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; pointer-events: none;
+  padding: 7px 12px; border-radius: 999px;
+  background: rgba(10, 14, 24, .5); backdrop-filter: blur(4px);
+  border: 1px solid rgba(120, 140, 180, .22);
+}
+.p3d-leg { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #c3ccdf; }
+.p3d-leg i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+@media (max-width: 760px) {
+  .p3d-stage { height: 460px; }
+  .p3d-hud { min-width: 0; padding: 8px 10px; gap: 3px; top: 10px; left: 10px; }
+  .p3d-hud-row { gap: 10px; font-size: 11px; }
+  .p3d-legend { gap: 6px 9px; padding: 6px 10px; bottom: 9px; max-width: 94%; }
+  .p3d-leg { font-size: 10px; }
+  .p3d-tag { font-size: 10px; padding: 2px 6px; }
+}
+
 /* ── Reveal animation ── */
 .reveal { animation: revealUp .5s var(--ease-out) both; }
 
