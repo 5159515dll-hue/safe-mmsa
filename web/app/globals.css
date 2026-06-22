@@ -157,6 +157,76 @@ body {
 }
 .auth-btn.primary { color: #fff; background: var(--gradient-button); border: 0; }
 .auth-btn:disabled { opacity: .6; cursor: default; }
+.auth-guest-tag {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .5px; color: #7186b3;
+  padding: 2px 7px; border: 1px solid rgba(120, 140, 180, .25); border-radius: var(--radius-pill);
+}
+
+/* ── 登录门：加载 splash + 登录/注册落地页 ── */
+.gate-splash {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; gap: 10px;
+  color: var(--muted); font-size: 14px;
+}
+.landing {
+  position: relative; min-height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px;
+  color: #e7ecf6;
+  background:
+    radial-gradient(130% 120% at 50% -20%, rgba(58, 114, 232, .18), transparent 60%),
+    linear-gradient(180deg, #0e1626 0%, #0a0f1c 100%);
+}
+.landing-mongol {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 0;
+  writing-mode: vertical-lr; font-family: var(--font-mongol); font-size: 260px; line-height: 1;
+  color: rgba(159, 192, 255, .045); pointer-events: none; user-select: none;
+}
+.landing-card {
+  position: relative; z-index: 1; width: 100%; max-width: 380px; padding: 30px 28px;
+  border-radius: 18px; border: 1px solid #1c2842;
+  background: linear-gradient(180deg, #101a2e 0%, #0c1322 100%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+}
+.landing-word { margin: 8px 0 0; font-size: 36px; font-weight: 700; letter-spacing: -1px; line-height: 1; color: #f4f7ff; }
+.landing-sub { margin: 8px 0 20px; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; color: #6c80ac; }
+.landing-tabs {
+  display: flex; gap: 6px; padding: 4px; margin-bottom: 16px;
+  background: #0a0f1c; border: 1px solid #1c2842; border-radius: 10px;
+}
+.lt-tab {
+  flex: 1; padding: 9px 0; font-size: 14px; font-weight: 600; cursor: pointer;
+  color: #7186b3; background: transparent; border: 0; border-radius: 7px;
+  transition: color .15s var(--ease-out), background .15s var(--ease-out);
+}
+.lt-tab.active { color: #fff; background: var(--gradient-button); box-shadow: 0 6px 16px rgba(43, 89, 224, .3); }
+.landing-form { display: flex; flex-direction: column; gap: 10px; }
+.landing-input {
+  width: 100%; padding: 11px 13px; font-size: 14px; color: #e7ecf6;
+  background: #0a0f1c; border: 1px solid #243152; border-radius: 9px;
+}
+.landing-input::placeholder { color: #5f74a0; }
+.landing-input:focus { outline: none; border-color: var(--blue-500); box-shadow: 0 0 0 3px rgba(58, 114, 232, .2); }
+.landing-err { color: #f0a59a; font-size: 12px; line-height: 1.5; }
+.landing-submit {
+  margin-top: 4px; padding: 12px 0; font-size: 15px; font-weight: 600; cursor: pointer;
+  color: #fff; background: var(--gradient-button); border: 0; border-radius: 9px;
+  box-shadow: var(--shadow-button);
+  transition: transform .15s var(--ease-out), box-shadow .15s var(--ease-out);
+}
+.landing-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-button-hover); }
+.landing-submit:disabled { opacity: .6; cursor: default; }
+.landing-guest {
+  display: block; width: 100%; margin-top: 18px; padding: 10px 8px 2px; font-size: 13px;
+  color: #8aa0c8; background: transparent; border: 0; border-top: 1px solid #1c2842; cursor: pointer;
+  transition: color .15s var(--ease-out);
+}
+.landing-guest:hover { color: #cdd7ee; }
+.landing-foot { position: relative; z-index: 1; margin-top: 22px; font-size: 11px; color: #5f74a0; text-align: center; }
+
+@media (max-width: 480px) {
+  .landing-mongol { font-size: 180px; }
+  .landing-card { padding: 24px 20px; }
+  .landing-word { font-size: 30px; }
+}
 
 /* ── 我的历史 ── */
 .hist-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }

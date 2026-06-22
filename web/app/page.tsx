@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { analyze, fetchHistory, fetchModelsStatus } from "@/lib/api";
+import { analyze, fetchHistory, fetchMe, fetchModelsStatus, logout } from "@/lib/api";
 import type { AnalyzeResult, AuthUser, HistoryItem, ModelsStatus } from "@/lib/types";
 import { LABEL_ZH } from "@/lib/types";
 import { DistributionBars } from "@/components/Bars";
@@ -12,6 +12,7 @@ import { AnalyzingPipeline } from "@/components/AnalyzingPipeline";
 import { FileDrop } from "@/components/FileDrop";
 import { CountUp } from "@/components/CountUp";
 import { AuthBar } from "@/components/AuthBar";
+import { LandingAuth } from "@/components/LandingAuth";
 
 // 一键填充示例文本，便于不上传文件也能跑通整条流水线（桩模式仅演示流程，不据文本判情感）。
 const EXAMPLES: { label: string; text: string; mongol?: boolean }[] = [
@@ -61,9 +62,21 @@ export default function Page() {
   const [status, setStatus] = useState<ModelsStatus | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  // 登录门：loading→检查令牌中；landing→显示登录/注册落地页；app→进入分析页。
+  const [gate, setGate] = useState<"loading" | "landing" | "app">("loading");
 
   useEffect(() => {
     fetchModelsStatus().then(setStatus);
+    fetchMe().then((u) => {
+      if (u) {
+        setUser(u);
+        refreshHistory(u);
+        setGate("app");
+      } else {
+        setGate("landing");
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function refreshHistory(u: AuthUser | null) {
@@ -71,9 +84,17 @@ export default function Page() {
     else setHistory([]);
   }
 
-  function onUser(u: AuthUser | null) {
+  function onAuthed(u: AuthUser) {
     setUser(u);
     refreshHistory(u);
+    setGate("app");
+  }
+
+  function onLogout() {
+    logout();
+    setUser(null);
+    setHistory([]);
+    setGate("landing");
   }
 
   async function onSubmit() {
@@ -93,6 +114,17 @@ export default function Page() {
 
   const correction = result?.enhancement.correction_magnitude ?? 0;
 
+  if (gate === "loading") {
+    return (
+      <main className="gate-splash">
+        <span className="spinner" /> 加载中…
+      </main>
+    );
+  }
+  if (gate === "landing") {
+    return <LandingAuth onAuthed={onAuthed} onGuest={() => setGate("app")} />;
+  }
+
   return (
     <main className="page">
       <header className="hero">
@@ -106,7 +138,7 @@ export default function Page() {
                 {status.all_stub ? "桩 / 基线演示" : "已接入真实模型"}
               </span>
             )}
-            <AuthBar onUser={onUser} />
+            <AuthBar user={user} onLogout={onLogout} onLogin={() => setGate("landing")} />
           </div>
         </div>
         <h1 className="wordmark">SAFE-MMSA</h1>
