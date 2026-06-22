@@ -10,13 +10,15 @@ import tempfile
 from contextlib import asynccontextmanager, suppress
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Header, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 import safemmsa
 from safemmsa.contracts import AnalyzeResult
-from safemmsa.persistence import analyze_history
+from safemmsa.records import OperationLog, analyze_result_to_bundle
+from safemmsa.repository import get_repository
 
+from .auth_routes import resolve_user_id, router as auth_router
 from .models_status import models_status
 
 # 单文件大小上限（部署机内存有限，防 OOM）。
@@ -48,6 +50,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 认证 / 历史 / 管理日志路由（模块11：持久化层对外接口）。
+app.include_router(auth_router)
+
 # 评测路由（模块9）；eval 包就绪时挂载，缺失不影响核心 API。
 with suppress(Exception):
     from eval.routes import router as eval_router  # type: ignore
@@ -64,12 +69,6 @@ def health() -> dict:
 def models_status_endpoint() -> dict:
     """各 register_* 插点的桩/真模型状态。"""
     return models_status()
-
-
-@app.get("/api/history")
-def history(limit: int = 20) -> dict:
-    """最近的分析历史（紧凑摘要）。"""
-    return {"items": analyze_history.list(limit=limit)}
 
 
 def _spill_to_temp(upload: Optional[UploadFile], suffix: str) -> Optional[str]:
@@ -102,6 +101,7 @@ async def analyze(
     text: Optional[str] = Form(default=None),
     video: Optional[UploadFile] = File(default=None),
     audio: Optional[UploadFile] = File(default=None),
+    authorization: Optional[str] = Header(default=None),
 ) -> AnalyzeResult:
     """三模态（任意子集）→ 完整 AnalyzeResult：初始预测 → 三状态 → 最终 + 修正幅度。"""
     video_path = _spill_to_temp(video, ".mp4")
@@ -112,17 +112,19 @@ async def analyze(
             audio=audio_path,
             text=(text.strip() if text and text.strip() else None),
         )
-        # 持久化一条紧凑历史（不含原始媒体/文本，仅结果摘要）。
+        # 持久化为规范化记录（analysis_record + modality_output + state_diagnosis +
+        # modality_reliability），并记一条操作日志。存储失败绝不影响分析返回。
         with suppress(Exception):
-            analyze_history.append(
-                {
-                    "final_emotion": result.final_emotion,
-                    "language": result.language,
-                    "initial_top": max(result.initial.distribution, key=result.initial.distribution.get),
-                    "boundary_score": round(result.boundary.score, 4),
-                    "correction_magnitude": result.enhancement.correction_magnitude,
-                    "available": {m.modality: m.available for m in result.modalities},
-                }
+            repo = get_repository()
+            user_id = resolve_user_id(authorization)
+            bundle = analyze_result_to_bundle(result, user_id=user_id)
+            record_id = repo.save_analysis(bundle)
+            repo.add_log(
+                OperationLog(
+                    user_id=user_id,
+                    action="analyze",
+                    detail={"record_id": record_id, "final_emotion": result.final_emotion},
+                )
             )
         return result
     finally:

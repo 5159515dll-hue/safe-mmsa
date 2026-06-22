@@ -9,10 +9,22 @@
 **三状态（边界 B / 类别竞争 C / 模态可靠性 R）** → 有界融合增强 → 最终 p*。7 类离散情感。
 
 ## 完成度
-除可训练神经模型外**12 模块全部完成**，53 单测全过，已上线。模型藏在 `register_*` 之后，
+除可训练神经模型外**12 模块全部完成**，79 单测全过，已上线。模型藏在 `register_*` 之后，
 现给桩/基线；核心包 `safemmsa/` **不依赖 torch**（torch 只在 `models/` 挂载真实模型时进入）。
 训练完成后按 [models/README.md](models/README.md) 实现 `models/backends/<component>.py` 的
 `build(spec)`、config 设 `enabled=true`、`load_models()` 一调即生效，**其余代码零改动**。
+
+## 持久化层（模块11，对应论文 fig4-5 的 E-R）
+8 实体规范化（user / analysis_record / modality_output / state_diagnosis /
+modality_reliability / eval_run / eval_item / operation_log），**一套持久化契约
+`safemmsa/records.py`、JSON 与 RDBMS 共用**。统一 `Repository` 接口（`safemmsa/repository.py`）：
+默认 `JsonRepository`；置 `SAFEMMSA_DB_BACKEND=sqlite`（+ `SAFEMMSA_DB_PATH`）即切到
+`SqliteRepository`（建表用 `safemmsa/db/schema.sql`，SQLite 为主、PG 兼容），**调用方零改动**。
+最小认证 `safemmsa/auth.py`（pbkdf2 口令 + HMAC 签名无状态令牌，纯 stdlib，密钥 `SAFEMMSA_SECRET`）。
+API：`/api/auth/{register,login,me}`、`/api/history[/{id}]`（按用户隔离、detail 防 IDOR）、
+`/api/admin/logs`（admin）；`/api/analyze` 带 `Bearer` 则归属该用户、落规范化 bundle + 操作日志。
+设计与 3NF 论证见 [docs/data-model.md](docs/data-model.md)。前端：hero 右上登录/注册栏 + 「我的历史」。
+**仍未起真实 DB**：现网默认 JSON 后端，SQLite 为「后期平滑落地」的可跑证据。
 
 ## 仓库 / 推送
 - 私有 repo `https://github.com/5159515dll-hue/safe-mmsa.git`（user 自己的 `5159515dll-hue`）。

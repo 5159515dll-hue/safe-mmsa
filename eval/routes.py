@@ -58,9 +58,48 @@ async def run_eval(
     if not items:
         raise HTTPException(status_code=400, detail="清单为空")
 
-    result = run_manifest(items, collect_per_item=collect_per_item)
+    result = run_manifest(items, collect_per_item=True)
     eval_runs.append(result.model_dump(), record_id=result.run_id)
+    # 同时落规范化的 eval_run / eval_item（与 fig4-5 的 E-R 对齐）；失败不影响返回。
+    with suppress(Exception):
+        _persist_eval_run(result, items)
+    if not collect_per_item:
+        result.per_item = None
     return result
+
+
+def _persist_eval_run(result: EvalRunResult, items: list[EvalItem]) -> None:
+    from safemmsa.records import EvalItemRow, EvalRun
+    from safemmsa.repository import ANONYMOUS_USER_ID, get_repository
+
+    paired = result.paired
+    run = EvalRun(
+        run_id=result.run_id,
+        user_id=ANONYMOUS_USER_ID,
+        dataset=str(result.config.get("dataset")) if result.config.get("dataset") else None,
+        n_items=result.n_items,
+        macro_f1=paired.final.macro_f1,
+        accuracy=paired.final.accuracy,
+        delta_macro_f1=paired.delta_macro_f1,
+        delta_accuracy=paired.delta_accuracy,
+        mean_correction_magnitude=paired.mean_correction_magnitude,
+        confusion=paired.final.confusion,
+    )
+    preds = {p["id"]: p for p in (result.per_item or [])}
+    rows = [
+        EvalItemRow(
+            run_id=result.run_id,
+            gold_label=it.label,
+            video_path=it.video_path,
+            audio_path=it.audio_path,
+            text=it.text,
+            pred_initial=preds.get(it.id, {}).get("initial"),
+            pred_final=preds.get(it.id, {}).get("final"),
+            correction_magnitude=preds.get(it.id, {}).get("correction_magnitude"),
+        )
+        for it in items
+    ]
+    get_repository().save_eval_run(run, rows)
 
 
 @router.get("/{run_id}", response_model=EvalRunResult)

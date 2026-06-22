@@ -11,17 +11,23 @@ from safemmsa import (
     register_reliability_head,
 )
 from safemmsa.persistence import analyze_history, eval_runs
+from safemmsa.repository import reset_repository
 
 
 @pytest.fixture(autouse=True)
-def _isolate_storage(tmp_path_factory):
-    """把持久化重定向到临时目录，避免测试在仓库里写 storage/。"""
+def _isolate_storage(tmp_path_factory, monkeypatch):
+    """把持久化（旧 JSON store + 新仓储）重定向到临时目录，避免污染仓库 storage/。"""
     d = tmp_path_factory.mktemp("storage")
+    monkeypatch.setenv("SAFEMMSA_STORAGE_DIR", str(d))
+    monkeypatch.delenv("SAFEMMSA_DB_BACKEND", raising=False)  # 测试默认 JSON 后端
+    monkeypatch.delenv("SAFEMMSA_DB_PATH", raising=False)
     analyze_history._path = str(d / "analyze_history.json")
     eval_runs._path = str(d / "eval_runs.json")
     analyze_history.clear()
     eval_runs.clear()
+    reset_repository()  # 单例按新目录重建（含 ensure_anonymous_user）
     yield
+    reset_repository()
 
 
 @pytest.fixture(autouse=True)
