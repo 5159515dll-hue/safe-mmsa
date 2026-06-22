@@ -73,6 +73,11 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+
+/* 统一键盘焦点环（鼠标点击不显示，仅键盘导航时出现） */
+:focus-visible { outline: 2px solid var(--blue-500); outline-offset: 2px; border-radius: 4px; }
+.btn:focus-visible { outline-offset: 3px; }
+.filedrop-zone:focus-visible { outline: 2px solid var(--blue-500); outline-offset: 2px; border-color: var(--blue-500); }
 body {
   background:
     radial-gradient(900px 420px at 12% -8%, #eef2ff 0%, rgba(238, 242, 255, 0) 60%),
@@ -168,6 +173,22 @@ textarea:focus {
   border-color: var(--blue-500);
   box-shadow: 0 0 0 3px rgba(43, 89, 224, .14);
 }
+/* 示例填充 chips */
+.examples { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: -2px 0 14px; }
+.ex-cap {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 1.4px;
+  text-transform: uppercase; color: var(--muted); margin-right: 2px;
+}
+.ex-chip {
+  font-family: var(--font-sans); font-size: 12.5px; color: var(--blue-700);
+  background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: var(--radius-pill);
+  padding: 4px 12px; cursor: pointer;
+  transition: background .15s var(--ease-out), border-color .15s var(--ease-out), transform .15s var(--ease-out);
+}
+.ex-chip:hover { background: var(--blue-100); border-color: #c2d4ff; transform: translateY(-1px); }
+.ex-chip:active { transform: translateY(0); }
+.ex-chip.mongol { font-family: var(--font-mongol); }
+
 .file-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 
 /* file drop-zone (replaces the bare <input type=file>) */
@@ -186,7 +207,28 @@ textarea:focus {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .filedrop-name.has { color: var(--ink); }
-.filedrop-clear { color: var(--muted); font-size: 12px; padding: 0 4px; cursor: pointer; }
+.filedrop-clear {
+  color: var(--muted); font-size: 12px; padding: 1px 5px; cursor: pointer;
+  background: transparent; border: 0; border-radius: 5px; font-family: inherit;
+  transition: color .12s var(--ease-out), background .12s var(--ease-out);
+}
+.filedrop-clear:hover { color: var(--red-ink); background: var(--red-tint); }
+
+/* ── Empty-state guide（首屏未分析时的安静引导，与结果区 ①~④ 呼应） ── */
+.empty-guide { border-style: dashed; background: var(--surface-sunken); }
+.eg-lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; max-width: 640px; }
+.eg-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+.eg-step {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-control);
+  background: var(--card); font-size: 12.5px; color: var(--ink); font-weight: 500;
+}
+.eg-n {
+  flex: none; display: grid; place-items: center; width: 20px; height: 20px;
+  font-family: var(--font-mono); font-style: normal; font-size: 11px; font-weight: 600;
+  color: var(--blue-700); background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: 6px;
+}
+@media (max-width: 640px) { .eg-steps { grid-template-columns: repeat(2, 1fr); } }
 
 /* ── Primary button ── */
 .btn {

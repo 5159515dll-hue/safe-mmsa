@@ -10,6 +10,22 @@ import { ModalityCard } from "@/components/ModalityCard";
 import { StatesPanel } from "@/components/StatesPanel";
 import { AnalyzingPipeline } from "@/components/AnalyzingPipeline";
 import { FileDrop } from "@/components/FileDrop";
+import { CountUp } from "@/components/CountUp";
+
+// 一键填充示例文本，便于不上传文件也能跑通整条流水线（桩模式仅演示流程，不据文本判情感）。
+const EXAMPLES: { label: string; text: string; mongol?: boolean }[] = [
+  { label: "蒙文 · 问候", text: "ᠰᠠᠶᠢᠨ ᠪᠠᠶᠢᠨ᠎ᠠ ᠤᠤ", mongol: true },
+  { label: "中文示例", text: "今天的演出太精彩了，我特别开心！" },
+  { label: "英文示例", text: "I can't believe this happened, it's terrible." },
+];
+
+// 空状态引导里复用的四个阶段（与结果区 ①~④ 对应）。
+const EMPTY_STEPS = [
+  { n: "1", t: "模态编码 + 质量" },
+  { n: "2", t: "初始预测 p⁰" },
+  { n: "3", t: "三状态 B·C·R" },
+  { n: "4", t: "有界增强 p*" },
+];
 
 const Pipeline3D = dynamic(() => import("@/components/Pipeline3D").then((m) => m.Pipeline3D), {
   ssr: false,
@@ -95,15 +111,46 @@ export default function Page() {
             placeholder="ᠰᠠᠶᠢᠨ ᠪᠠᠶᠢᠨ᠎ᠠ ᠤᠤ … 或输入中 / 英文本试桩"
           />
         </label>
+        <div className="examples">
+          <span className="ex-cap">示例</span>
+          {EXAMPLES.map((ex) => (
+            <button
+              type="button"
+              key={ex.label}
+              className={"ex-chip" + (ex.mongol ? " mongol" : "")}
+              onClick={() => setText(ex.text)}
+            >
+              {ex.label}
+            </button>
+          ))}
+        </div>
         <div className="file-row">
           <FileDrop code="VID" label="视频文件（可选）" accept="video/*" file={video} onFile={setVideo} hint="点击或拖拽视频" />
           <FileDrop code="AUD" label="音频文件（可选）" accept="audio/*" file={audio} onFile={setAudio} hint="点击或拖拽音频" />
         </div>
-        <button className="btn" onClick={onSubmit} disabled={loading}>
+        <button className="btn" onClick={onSubmit} disabled={loading} aria-busy={loading}>
           {loading ? "分析中…" : "开始分析"}
         </button>
-        {error && <div className="error">{error}</div>}
+        {error && <div className="error" role="alert">{error}</div>}
       </section>
+
+      {!result && !loading && (
+        <section className="card empty-guide">
+          <span className="card-eyebrow">READY · 等待输入</span>
+          <p className="eg-lead">
+            上传任意模态或选一个示例，点击「开始分析」——下面会按 predict-then-correct
+            逐阶段展开：
+          </p>
+          <div className="eg-steps">
+            {EMPTY_STEPS.map((s) => (
+              <div className="eg-step" key={s.n}>
+                <em className="eg-n">{s.n}</em>
+                <span>{s.t}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {loading && <AnalyzingPipeline />}
 
@@ -131,7 +178,7 @@ export default function Page() {
               <div>
                 <span>修正幅度 ‖p*−p⁰‖</span>
                 <b className="mono">
-                  {correction.toFixed(4)}
+                  <CountUp value={correction} decimals={4} />
                   {result.enhancement.bounded ? " (有界)" : ""}
                 </b>
               </div>

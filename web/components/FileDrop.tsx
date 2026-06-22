@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 
 // 视频 / 音频上传拖放区：虚线边框，悬浮/拖拽时变蓝，选中后显示文件名 + 清除。
+// 注意：根元素用 <div> 而非 <label>——否则原生 label 已触发文件框，手动 click() 会二次打开。
 export function FileDrop({
   label,
   accept,
@@ -20,13 +21,23 @@ export function FileDrop({
 }) {
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const open = () => inputRef.current?.click();
 
   return (
-    <label className="filedrop">
+    <div className="filedrop">
       <span className="lbl">{code && <em className="chcode">{code}</em>}{label}</span>
       <div
         className={"filedrop-zone" + (drag ? " drag" : "")}
-        onClick={() => inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        aria-label={label}
+        onClick={open}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            open();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setDrag(true);
@@ -42,8 +53,10 @@ export function FileDrop({
           {file ? file.name : hint ?? "点击或拖拽文件到此处"}
         </span>
         {file && (
-          <span
+          <button
+            type="button"
             className="filedrop-clear"
+            aria-label={`清除${label}`}
             onClick={(e) => {
               e.stopPropagation();
               onFile(null);
@@ -51,7 +64,7 @@ export function FileDrop({
             }}
           >
             清除
-          </span>
+          </button>
         )}
         <input
           ref={inputRef}
@@ -61,6 +74,6 @@ export function FileDrop({
           onChange={(e) => onFile(e.target.files?.[0] ?? null)}
         />
       </div>
-    </label>
+    </div>
   );
 }

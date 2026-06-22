@@ -7,18 +7,20 @@ import type {
 } from "@/lib/types";
 import { LABEL_ZH } from "@/lib/types";
 import { MeterBar } from "./Bars";
+import { useCountUp } from "./CountUp";
 
 const MODALITY_ZH: Record<string, string> = { video: "视频", audio: "音频", text: "文本" };
 
-// 边界评分半圆仪表（SVG）。
+// 边界评分半圆仪表（SVG）。弧线与读数随 count-up 一起扫入。
 function Gauge({ score }: { score: number }) {
-  const angle = Math.PI * (1 - Math.max(0, Math.min(1, score))); // 0→右, 1→左
+  const s = useCountUp(score);
+  const angle = Math.PI * (1 - Math.max(0, Math.min(1, s))); // 0→右, 1→左
   const cx = 90;
   const cy = 90;
   const r = 70;
   const x = cx + r * Math.cos(angle);
   const y = cy - r * Math.sin(angle);
-  const color = score > 0.66 ? "var(--red)" : score > 0.33 ? "var(--amber)" : "var(--green)";
+  const color = s > 0.66 ? "var(--red)" : s > 0.33 ? "var(--amber)" : "var(--green)";
   return (
     <svg viewBox="0 0 180 110" className="gauge">
       <path d="M20 90 A70 70 0 0 1 160 90" fill="none" stroke="var(--line)" strokeWidth="14" />
@@ -30,7 +32,7 @@ function Gauge({ score }: { score: number }) {
         strokeLinecap="round"
       />
       <text x="90" y="78" textAnchor="middle" className="gauge-val" fill={color}>
-        {score.toFixed(3)}
+        {s.toFixed(3)}
       </text>
       <text x="90" y="100" textAnchor="middle" className="gauge-cap">
         边界评分 B
