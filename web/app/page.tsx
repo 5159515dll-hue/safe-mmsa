@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { analyze, fetchModelsStatus } from "@/lib/api";
-import type { AnalyzeResult, ModelsStatus } from "@/lib/types";
+import { analyze, fetchHistory, fetchModelsStatus } from "@/lib/api";
+import type { AnalyzeResult, AuthUser, HistoryItem, ModelsStatus } from "@/lib/types";
 import { LABEL_ZH } from "@/lib/types";
 import { DistributionBars } from "@/components/Bars";
 import { ModalityCard } from "@/components/ModalityCard";
@@ -11,6 +11,7 @@ import { StatesPanel } from "@/components/StatesPanel";
 import { AnalyzingPipeline } from "@/components/AnalyzingPipeline";
 import { FileDrop } from "@/components/FileDrop";
 import { CountUp } from "@/components/CountUp";
+import { AuthBar } from "@/components/AuthBar";
 
 // 一键填充示例文本，便于不上传文件也能跑通整条流水线（桩模式仅演示流程，不据文本判情感）。
 const EXAMPLES: { label: string; text: string; mongol?: boolean }[] = [
@@ -18,6 +19,13 @@ const EXAMPLES: { label: string; text: string; mongol?: boolean }[] = [
   { label: "中文示例", text: "今天的演出太精彩了，我特别开心！" },
   { label: "英文示例", text: "I can't believe this happened, it's terrible." },
 ];
+
+// 历史时间戳（后端为 epoch 秒）→ 本地 月-日 时:分。
+function fmtTime(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 // 空状态引导里复用的四个阶段（与结果区 ①~④ 对应）。
 const EMPTY_STEPS = [
@@ -51,10 +59,22 @@ export default function Page() {
   const [result, setResult] = useState<AnalyzeResult | null>(null);
   const [resultSeq, setResultSeq] = useState(0);
   const [status, setStatus] = useState<ModelsStatus | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   useEffect(() => {
     fetchModelsStatus().then(setStatus);
   }, []);
+
+  function refreshHistory(u: AuthUser | null) {
+    if (u) fetchHistory(8).then(setHistory);
+    else setHistory([]);
+  }
+
+  function onUser(u: AuthUser | null) {
+    setUser(u);
+    refreshHistory(u);
+  }
 
   async function onSubmit() {
     setError(null);
@@ -63,6 +83,7 @@ export default function Page() {
       const r = await analyze({ text, video, audio });
       setResult(r);
       setResultSeq((s) => s + 1);
+      if (user) refreshHistory(user); // 登录用户：分析后刷新历史
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -78,12 +99,15 @@ export default function Page() {
         <div className="hero-mongol" aria-hidden="true">ᠮᠣᠩᠭᠣᠯ</div>
         <div className="hero-top">
           <span className="eyebrow">蒙古语 · 视频 + 音频 + 文本</span>
-          {status && (
-            <span className={"mode-chip " + (status.all_stub ? "stub" : "real")}>
-              <span className="dot" />
-              {status.all_stub ? "桩 / 基线演示" : "已接入真实模型"}
-            </span>
-          )}
+          <div className="hero-top-right">
+            {status && (
+              <span className={"mode-chip " + (status.all_stub ? "stub" : "real")}>
+                <span className="dot" />
+                {status.all_stub ? "桩 / 基线演示" : "已接入真实模型"}
+              </span>
+            )}
+            <AuthBar onUser={onUser} />
+          </div>
         </div>
         <h1 className="wordmark">SAFE-MMSA</h1>
         <p className="expand">State-Aware Fusion-Enhanced · Mongolian Multi-modal Sentiment Analysis</p>
@@ -149,6 +173,27 @@ export default function Page() {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {user && history.length > 0 && (
+        <section className="card my-history">
+          <span className="card-eyebrow">HISTORY · {user.username} 的最近分析</span>
+          <ul className="hist-list">
+            {history.map((h) => (
+              <li className="hist-row" key={h.record_id}>
+                <span className="hist-emo">
+                  <span className="hist-emoji">{EMOTION_EMOJI[h.final_emotion]}</span>
+                  {LABEL_ZH[h.final_emotion]}
+                </span>
+                <span className="hist-meta mono">
+                  p⁰={LABEL_ZH[h.initial_top]} · B={h.boundary_score.toFixed(3)} · ‖Δ‖=
+                  {h.correction_magnitude.toFixed(4)}
+                </span>
+                <span className="hist-time mono">{fmtTime(h.created_at)}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

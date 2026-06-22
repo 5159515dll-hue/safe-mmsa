@@ -95,6 +95,25 @@ export interface AnalyzeResult {
   timings_ms: Record<string, number> | null;
 }
 
+export interface AuthUser {
+  user_id: string;
+  username: string;
+  role: "user" | "admin";
+}
+
+export interface HistoryItem {
+  record_id: string;
+  user_id: string;
+  language: string;
+  final_emotion: string;
+  enhancement: string;
+  correction_magnitude: number;
+  bounded: boolean;
+  initial_top: string;
+  boundary_score: number;
+  created_at: number;
+}
+
 export interface ModelsStatus {
   mode: string;
   all_stub: boolean;

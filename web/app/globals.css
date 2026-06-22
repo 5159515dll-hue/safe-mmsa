@@ -117,6 +117,64 @@ body {
 .hero > *:not(.hero-mongol) { position: relative; z-index: 1; }
 
 .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.hero-top-right { display: flex; align-items: center; gap: 10px; }
+
+/* ── 认证栏（hero 右上） ── */
+.authbar { position: relative; }
+.auth-toggle, .auth-link {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; cursor: pointer;
+  color: #aab9da; background: rgba(120, 140, 180, .12);
+  border: 1px solid rgba(120, 140, 180, .3); border-radius: var(--radius-pill);
+  padding: 4px 12px; transition: color .15s var(--ease-out), background .15s var(--ease-out);
+}
+.auth-toggle:hover, .auth-link:hover { color: #eaf0ff; background: rgba(120, 140, 180, .2); }
+.auth-user { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: #cdd7ee; font-weight: 600; }
+.auth-avatar {
+  display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  font-size: 11px; color: #fff; background: var(--gradient-button);
+}
+.auth-role {
+  font-family: var(--font-mono); font-style: normal; font-size: 9.5px; letter-spacing: .5px;
+  color: #7fd4a6; border: 1px solid rgba(58, 166, 111, .42); border-radius: 4px; padding: 0 4px;
+}
+.auth-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; width: 220px;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; border-radius: 12px;
+  background: #0e1626; border: 1px solid #243152; box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+.auth-input {
+  width: 100%; padding: 7px 10px; font-size: 13px; color: #e7ecf6;
+  background: #0a0f1c; border: 1px solid #243152; border-radius: var(--radius-control);
+}
+.auth-input::placeholder { color: #5f74a0; }
+.auth-input:focus { outline: none; border-color: var(--blue-500); box-shadow: 0 0 0 3px rgba(58, 114, 232, .2); }
+.auth-err { color: #f0a59a; font-size: 11px; line-height: 1.5; }
+.auth-actions { display: flex; gap: 8px; }
+.auth-btn {
+  flex: 1; padding: 7px 0; font-size: 12px; font-weight: 600; cursor: pointer; color: #cdd7ee;
+  background: rgba(120, 140, 180, .12); border: 1px solid rgba(120, 140, 180, .3); border-radius: var(--radius-control);
+}
+.auth-btn.primary { color: #fff; background: var(--gradient-button); border: 0; }
+.auth-btn:disabled { opacity: .6; cursor: default; }
+
+/* ── 我的历史 ── */
+.hist-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hist-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 0; border-bottom: 1px dashed var(--line);
+}
+.hist-row:last-child { border-bottom: none; }
+.hist-emo { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; min-width: 84px; }
+.hist-emoji { font-size: 17px; }
+.hist-meta { color: var(--muted); font-size: 12px; flex: 1; }
+.hist-time { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+@media (max-width: 640px) {
+  .hero-top { flex-wrap: wrap; }
+  .auth-pop { width: 200px; }
+  .hist-meta { flex-basis: 100%; }
+}
 .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.6px; color: #7186b3; text-transform: uppercase; }
 .wordmark { margin: 0; font-size: clamp(34px, 6.4vw, 48px); font-weight: 700; letter-spacing: -1px; line-height: 1; color: #f4f7ff; }
 .expand { margin: 9px 0 0; font-family: var(--font-mono); font-size: 12px; letter-spacing: .3px; color: #6c80ac; }
