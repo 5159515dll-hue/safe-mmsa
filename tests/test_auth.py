@@ -122,3 +122,137 @@ def test_admin_logs_requires_admin():
     atoken = _auth.issue_token(admin.user_id)
     ok = client.get("/api/admin/logs", headers={"Authorization": f"Bearer {atoken}"})
     assert ok.status_code == 200 and "logs" in ok.json()
+
+
+# ── 安全加固回归（对应本次安全审查坐实的问题）─────────────────────────
+
+def test_assert_secret_configured_refuses_default(monkeypatch):
+    """默认弱密钥（未配置 SAFEMMSA_SECRET）必须拒绝启动，除非显式豁免。"""
+    monkeypatch.delenv("SAFEMMSA_SECRET", raising=False)
+    monkeypatch.delenv("SAFEMMSA_ALLOW_DEFAULT_SECRET", raising=False)
+    with pytest.raises(RuntimeError):
+        auth.assert_secret_configured()
+    monkeypatch.setenv("SAFEMMSA_ALLOW_DEFAULT_SECRET", "1")  # 本地开发显式豁免
+    auth.assert_secret_configured()
+    monkeypatch.delenv("SAFEMMSA_ALLOW_DEFAULT_SECRET", raising=False)
+    monkeypatch.setenv("SAFEMMSA_SECRET", "a-strong-random-secret")  # 已配置真实密钥
+    auth.assert_secret_configured()
+
+
+def test_secret_guard_rejects_blank_default_and_short(monkeypatch):
+    """空/空白/默认/过短密钥都算弱密钥，必须被守卫拒绝（不能只比默认字面量）。"""
+    import base64
+    import hashlib
+    import hmac
+    import time
+
+    monkeypatch.delenv("SAFEMMSA_ALLOW_DEFAULT_SECRET", raising=False)
+    for weak in ("", "   ", "safe-mmsa-dev-secret-change-me", "short"):
+        monkeypatch.setenv("SAFEMMSA_SECRET", weak)
+        assert auth.secret_is_weak() is True
+        with pytest.raises(RuntimeError):
+            auth.assert_secret_configured()
+        with pytest.raises(RuntimeError):
+            auth.issue_token("usr_x")  # 弱密钥下拒绝签发
+        # 关键：即便手工用当前(弱)密钥签出一枚"签名有效、未过期"的令牌，verify_token 也必须拒绝。
+        # （用 "any-token" 断言 None 是空断言——旧码经 except 同样返回 None，抓不到守卫回退。）
+        exp = int(time.time()) + 3600
+        payload = f"usr_x:{exp}"
+        sig = hmac.new(auth._secret(), payload.encode(), hashlib.sha256).hexdigest()
+        signed = base64.urlsafe_b64encode(f"{payload}:{sig}".encode()).decode()
+        assert auth.verify_token(signed) is None  # 弱密钥 fail-closed：合法签名也拒
+    monkeypatch.delenv("SAFEMMSA_SECRET", raising=False)  # 未设 → 弱
+    assert auth.secret_is_weak() is True
+    monkeypatch.setenv("SAFEMMSA_SECRET", "x" * 16)  # 恰好达标
+    assert auth.secret_is_weak() is False
+    auth.assert_secret_configured()
+
+
+def test_verify_token_rejects_empty_user_id():
+    """空 user_id 的合法签名令牌也必须拒绝（不依赖下游 falsy 兜底）。"""
+    import base64
+    import hashlib
+    import hmac
+    import time
+
+    exp = int(time.time()) + 3600
+    payload = f":{exp}"  # 空 user_id
+    sig = hmac.new(auth._secret(), payload.encode(), hashlib.sha256).hexdigest()
+    tok = base64.urlsafe_b64encode(f"{payload}:{sig}".encode()).decode()
+    assert auth.verify_token(tok) is None
+
+
+def test_register_rejects_out_of_bound_credentials():
+    assert client.post("/api/auth/register", json={"username": "u" * 65, "password": "secret123"}).status_code == 400
+    assert client.post("/api/auth/register", json={"username": "okname", "password": "x" * 129}).status_code == 400
+    assert client.post("/api/auth/register", json={"username": "okname", "password": "12345"}).status_code == 400
+
+
+def test_history_and_analyze_reject_invalid_token_but_allow_guest():
+    """有鉴权头但令牌无效 → 401（不静默降级到 anonymous）；无头 → 游客 200。"""
+    assert client.get("/api/history").status_code == 200  # 无头=游客
+    assert client.get("/api/history", headers={"Authorization": "Bearer garbage.token"}).status_code == 401
+    assert client.post("/api/analyze", data={"text": "hi"}).status_code == 200  # 无头 analyze=游客
+    assert client.post(
+        "/api/analyze", data={"text": "hi"}, headers={"Authorization": "Bearer garbage.token"}
+    ).status_code == 401
+
+
+def test_history_limit_is_clamped():
+    """负数/超大 limit 不得 500，也不得导致跨后端行为分歧。"""
+    assert client.get("/api/history?limit=-1").status_code == 200
+    assert client.get("/api/history?limit=999999").status_code == 200
+    assert client.get("/api/history?limit=0").status_code == 200
+
+
+def test_clamp_limit_semantics():
+    """直接钉死收敛语义：透传实现（return limit）会让本用例失败。"""
+    from api.auth_routes import _MAX_LIST_LIMIT, _clamp_limit
+
+    assert _clamp_limit(-1) == 1
+    assert _clamp_limit(0) == 1
+    assert _clamp_limit(5) == 5
+    assert _clamp_limit(_MAX_LIST_LIMIT) == _MAX_LIST_LIMIT
+    assert _clamp_limit(999999) == _MAX_LIST_LIMIT
+
+
+def test_history_huge_and_negative_limit_return_same_bounded_set():
+    """超大与负数 limit 返回的条数受钉；透传实现下 limit=-1 会返回 rows[:-1]（缺一条），据此可抓回退。"""
+    reg = client.post("/api/auth/register", json={"username": "limituser", "password": "secret123"})
+    headers = {"Authorization": f"Bearer {reg.json()['token']}"}
+    for _ in range(3):
+        client.post("/api/analyze", data={"text": "I am so happy"}, headers=headers)
+    n_all = len(client.get("/api/history?limit=999999", headers=headers).json()["items"])
+    n_neg = len(client.get("/api/history?limit=-1", headers=headers).json()["items"])
+    assert n_all == 3, f"超大 limit 应返回全部 3 条，得 {n_all}"
+    assert n_neg == 1, f"limit=-1 应被收敛到 1（而非透传的 rows[:-1]=2 条），得 {n_neg}"
+
+
+def test_json_create_user_username_unique_under_concurrency():
+    """JSON 后端用户名唯一性在并发下也成立（修复前会产生重复账号）。"""
+    import threading
+
+    from safemmsa.repository import get_repository
+
+    repo = get_repository()
+    n = 20
+    barrier = threading.Barrier(n)
+    oks: list[str] = []
+    errs: list[int] = []
+
+    def worker() -> None:
+        barrier.wait()  # 最大化 check-then-insert 的并发重叠
+        try:
+            oks.append(repo.create_user("racer", "secret123").user_id)
+        except ValueError:
+            errs.append(1)
+
+    threads = [threading.Thread(target=worker) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    rows = [r for r in repo.users.all() if r.get("username") == "racer"]
+    assert len(rows) == 1, f"用户名唯一性被破坏：存在 {len(rows)} 个 'racer'"
+    assert len(oks) == 1 and len(errs) == n - 1

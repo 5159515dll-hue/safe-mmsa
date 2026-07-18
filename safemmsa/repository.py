@@ -61,6 +61,17 @@ class _JsonTable:
             rows.append(row)
             self._write(rows)
 
+    def insert_unique(self, row: dict, *, key: str, value: object) -> bool:
+        """原子「查唯一→插入」：单次持锁内检查 ``key==value`` 是否已存在，不存在才追加。
+        返回是否插入成功。用于替代「先 get 再 insert」的 TOCTOU（用户名唯一性靠此保证）。"""
+        with self._lock:
+            rows = self._read()
+            if any(r.get(key) == value for r in rows):
+                return False
+            rows.append(row)
+            self._write(rows)
+            return True
+
     def insert_many(self, new_rows: list[dict]) -> None:
         if not new_rows:
             return
@@ -142,16 +153,17 @@ class JsonRepository(Repository):
 
     # users
     def _insert_user(self, user: User) -> None:
-        self.users.insert(user.model_dump())
+        # 幂等按 user_id 唯一插入（供 ensure_anonymous_user 用，避免重复 PK 行）。
+        self.users.insert_unique(user.model_dump(), key="user_id", value=user.user_id)
 
     def create_user(self, username: str, password: str, *, role: Role = "user") -> User:
         username = username.strip()
         if not username:
             raise ValueError("username 不能为空")
-        if self.get_user_by_username(username) is not None:
-            raise ValueError(f"username 已存在: {username}")
         user = User(username=username, password_hash=auth.hash_password(password), role=role)
-        self._insert_user(user)
+        # 原子唯一插入：并发同名注册只有一个成功，其余得到 409（与 SQLite UNIQUE 行为一致）。
+        if not self.users.insert_unique(user.model_dump(), key="username", value=username):
+            raise ValueError(f"username 已存在: {username}")
         return user
 
     def get_user(self, user_id: str) -> Optional[User]:

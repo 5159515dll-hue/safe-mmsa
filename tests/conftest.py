@@ -21,6 +21,8 @@ def _isolate_storage(tmp_path_factory, monkeypatch):
     monkeypatch.setenv("SAFEMMSA_STORAGE_DIR", str(d))
     monkeypatch.delenv("SAFEMMSA_DB_BACKEND", raising=False)  # 测试默认 JSON 后端
     monkeypatch.delenv("SAFEMMSA_DB_PATH", raising=False)
+    # 测试属本地开发上下文：显式豁免默认弱密钥守卫（否则 issue/verify_token 会 fail-closed）。
+    monkeypatch.setenv("SAFEMMSA_ALLOW_DEFAULT_SECRET", "1")
     analyze_history._path = str(d / "analyze_history.json")
     eval_runs._path = str(d / "eval_runs.json")
     analyze_history.clear()

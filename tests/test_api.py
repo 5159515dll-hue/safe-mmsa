@@ -59,3 +59,25 @@ def test_analyze_with_fake_uploads_degrades_gracefully():
     assert by_mod["video"]["available"] is True
     assert by_mod["video"]["distribution"] is None
     assert by_mod["text"]["available"] is True
+
+
+def test_analyze_oversize_second_upload_returns_413_without_leaking_tempfile():
+    """video 正常落盘、audio 超限时：返回 413 且不泄漏已落盘的 video 临时文件。"""
+    import glob
+    import os
+    import tempfile
+
+    from api.main import _MAX_UPLOAD_BYTES
+
+    tmp_glob = os.path.join(tempfile.gettempdir(), "safemmsa_*")
+    before = set(glob.glob(tmp_glob))
+    small = io.BytesIO(b"x" * 1024)  # 1KB video → 落盘成功
+    big = io.BytesIO(b"y" * (_MAX_UPLOAD_BYTES + 4096))  # >50MB audio → 超限抛错
+    r = client.post(
+        "/api/analyze",
+        data={"text": "hi"},
+        files={"video": ("v.mp4", small, "video/mp4"), "audio": ("a.wav", big, "audio/wav")},
+    )
+    assert r.status_code == 413
+    leaked = set(glob.glob(tmp_glob)) - before
+    assert not leaked, f"临时文件泄漏: {sorted(leaked)}"

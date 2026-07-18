@@ -35,6 +35,8 @@ export async function analyze(input: {
     headers: authHeader(),
   });
   if (!res.ok) {
+    // 不在此清除令牌：清了会让下一次 analyze 静默以游客身份提交，把本应属于该用户的
+    // 输入写进所有人共享的 anonymous 桶（隐私回退）。令牌过期由 fetchMe 统一清除并登出。
     const detail = await res.text().catch(() => "");
     throw new Error(`分析失败 (${res.status}): ${detail}`);
   }
@@ -80,7 +82,7 @@ export async function fetchMe(): Promise<AuthUser | null> {
 export async function fetchHistory(limit = 10): Promise<HistoryItem[]> {
   try {
     const res = await fetch(`${API_BASE}/api/history?limit=${limit}`, { headers: authHeader() });
-    if (!res.ok) return [];
+    if (!res.ok) return [];  // 401（令牌过期）静默降级为空历史；令牌清除交由 fetchMe 统一处理
     const data = await res.json();
     return (data.items ?? []) as HistoryItem[];
   } catch {
